@@ -14,6 +14,10 @@ app.use(express.json());
 // Serve static frontend files from this directory
 app.use(express.static(path.join(__dirname)));
 
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
 // POST /api/chat - Gemini API Backend Proxy
 app.post('/api/chat', async (req, res) => {
     try {
