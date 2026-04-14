@@ -20,6 +20,63 @@ const db = getDatabase(app);
 let liveCrowdData = {};
 let liveWeather = null;
 
+/**
+ * Returns the best zones to visit based on live Firebase crowd density.
+ * Priority: low > medium > high
+ * Returns an object: { best: [{key, name, density}], avoid: [{key, name, density}] }
+ */
+function getBestZone() {
+    const nameMap = {
+        zoneA: 'Zone A', zoneB: 'Zone B', zoneC: 'Zone C',
+        zoneD: 'Zone D', vip: 'VIP Lounge', food: 'Food Court'
+    };
+    const priority = { low: 0, medium: 1, high: 2 };
+
+    const zones = Object.entries(liveCrowdData).map(([key, val]) => ({
+        key,
+        name: nameMap[key] || key,
+        density: val.toLowerCase().trim()
+    }));
+
+    zones.sort((a, b) => (priority[a.density] ?? 1) - (priority[b.density] ?? 1));
+
+    const best = zones.filter(z => z.density === 'low');
+    const medium = zones.filter(z => z.density === 'medium');
+    const avoid = zones.filter(z => z.density === 'high');
+
+    return { best, medium, avoid, all: zones };
+}
+
+/**
+ * Updates the #best-zone-widget DOM element if it exists on the page.
+ */
+function updateBestZoneWidget() {
+    const widget = document.getElementById('best-zone-widget');
+    if (!widget) return;
+
+    if (Object.keys(liveCrowdData).length === 0) {
+        widget.innerHTML = '<span style="opacity:0.5">Waiting for live data...</span>';
+        return;
+    }
+
+    const { best, medium, avoid } = getBestZone();
+
+    const bestHtml = best.length
+        ? best.map(z => `<span class="zone-pill low">🟢 ${z.name}</span>`).join('')
+        : medium.length
+            ? medium.map(z => `<span class="zone-pill medium">🟡 ${z.name}</span>`).join('')
+            : '<span style="opacity:0.6">All zones are busy right now</span>';
+
+    const avoidHtml = avoid.length
+        ? avoid.map(z => `<span class="zone-pill high">🔴 ${z.name}</span>`).join('')
+        : '<span style="opacity:0.5">None</span>';
+
+    widget.innerHTML = `
+        <div class="bz-row"><span class="bz-label">✅ Go to:</span> ${bestHtml}</div>
+        <div class="bz-row"><span class="bz-label">⚠️ Avoid:</span> ${avoidHtml}</div>
+    `;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initNavigation();
     initChatAI();
@@ -184,7 +241,21 @@ function initChatAI() {
         const highZones = highKeys.map(k => nameMap[k] || k);
 
         // Primary Safety Intercept Block
-        if (msg.includes("safe") || msg.includes("crowd") || msg.includes("busy") || msg.includes("where to go") || msg.includes("emergency") || msg.includes("danger")) {
+        if (msg.includes("where should") || msg.includes("where to go") || msg.includes("where can i") || msg.includes("best zone") || msg.includes("recommend")) {
+            const { best, medium, avoid } = getBestZone();
+            if (best.length > 0) {
+                const names = best.map(z => z.name).join(' or ');
+                const avoidNote = avoid.length > 0 ? ` Avoid ${avoid.map(z => z.name).join(' and ')} — high crowd.` : '';
+                return `🟢 Go to **${names}** — low crowd right now.${avoidNote}`;
+            } else if (medium.length > 0) {
+                return `🟡 No zones are fully clear right now. **${medium[0].name}** has moderate crowd — your best bet currently.`;
+            } else {
+                return `🔴 All zones are currently experiencing high crowd. Please check back in a few minutes.`;
+            }
+        }
+
+        // Primary Safety Intercept Block
+        if (msg.includes("safe") || msg.includes("crowd") || msg.includes("busy") || msg.includes("emergency") || msg.includes("danger")) {
             if (highZones.length > 0) {
                 return `⚠️ **${highZones.join(" and ")}** are currently overcrowded. Please avoid these areas.`;
             }
@@ -397,15 +468,14 @@ function updateHeatmapUI(data) {
 }
 
 function listenToCrowdData() {
-    console.log("Firebase connected");
     const crowdRef = ref(db, 'crowd');
 
     onValue(crowdRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
             liveCrowdData = data;
-            console.log("Updated Live Data:", liveCrowdData);
             updateHeatmapUI(data);
+            updateBestZoneWidget(); // Refresh recommendation widget on every Firebase push
         }
     });
 }
