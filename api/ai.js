@@ -37,7 +37,7 @@ Answer helpfully using the crowd data above. If a zone is "high", warn the user.
 
     try {
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -49,9 +49,8 @@ Answer helpfully using the crowd data above. If a zone is "high", warn the user.
         );
 
         if (!response.ok) {
-            const errText = await response.text();
-            console.error('Gemini API error:', response.status, errText);
-            return res.status(500).json({ error: `Gemini error: ${response.statusText}` });
+            const errBody = await response.json().catch(() => ({}));
+            return res.status(500).json({ error: errBody.error?.message || `Gemini error ${response.status}` });
         }
 
         const data = await response.json();
