@@ -1,7 +1,7 @@
 // script.js - Smart Event Assistant Navigation & Logic
 
-// import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-// import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyAxb_6lMmoA7E4j7Ogp0Ut6K0SD9A1AJl8",
@@ -14,14 +14,8 @@ const firebaseConfig = {
     measurementId: "G-KEBQ8PPB7W"
 };
 
-// const app = initializeApp(firebaseConfig);
-// const db = getDatabase(app);
-
-// Mock Firebase for static fallback testing
-const db = {};
-const ref = () => {};
-const onValue = () => {};
-const set = () => {};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
 let liveCrowdData = {};
 let liveWeather = null;
@@ -110,22 +104,19 @@ function initChatAI() {
     }
 
     const processMessageWithGemini = async (message) => {
-        const formattedMsg = message.toLowerCase();
-
-        // Removed cache to ensure queries utilize the most up-to-date live data
-
-        const stadiumContext = getSystemContext();
-
-        // 2. Call local backend proxy
-        // const response = await fetch(`/api/chat`, {
-        //     method: 'POST',
-        //     headers: { 'Content-Type': 'application/json' },
-        //     body: JSON.stringify({ message: message, context: stadiumContext })
-        // });
-        throw new Error("Chat fetch suspended for static mode");
+        // Call /api/ai with live Firebase crowd data + weather as context
+        const response = await fetch('/api/ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: message,
+                crowdData: liveCrowdData,
+                weather: liveWeather
+            })
+        });
 
         if (!response.ok) {
-            throw new Error(`Proxy error! status: ${response.status}`);
+            throw new Error(`API error: ${response.status}`);
         }
 
         const data = await response.json();
@@ -547,13 +538,12 @@ function initSmartNav() {
 
 async function fetchWeather() {
     try {
-        // const res = await fetch("/api/weather?lat=26.9&lon=75.8");
-        // const data = await res.json();
-        // liveWeather = data;
-        // return data;
-        throw new Error("Weather routing disabled temporarily");
+        const res = await fetch("/api/weather?lat=26.9&lon=75.8");
+        const data = await res.json();
+        liveWeather = data;
+        return data;
     } catch (e) {
-        console.error("Local fetch failed", e);
+        // Weather unavailable — graceful fallback, won't block UI
         return null;
     }
 }
