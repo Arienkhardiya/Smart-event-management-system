@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Event Assistant</title>
+    <meta name="description" content="Your interactive guide for the Championship Finals 2026.">
+    <!-- Google Fonts for modern typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Main Header -->
+        <header class="app-header glass">
+            <div class="header-info">
+                <h1 class="event-title">Championship Finals 2026</h1>
+                <p class="event-subtitle">AI-Powered Smart Event Assistant</p>
+            </div>
+            <button class="profile-btn" aria-label="User Profile">
+                <i class="fas fa-user-circle"></i>
+            </button>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="app-content">
+            
+            <!-- Home Section -->
+            <section id="section-home" class="view-section active">
+                <div class="hero-card glass animated-entry">
+                    <h2>Welcome to the Arena</h2>
+                    <p>Your ultimate guide for today's event. Explore the stadium, order food, and stay connected.</p>
+                </div>
+
+                <div class="quick-status glass animated-entry delay-1">
+                    <div class="status-item">
+                        <i class="fas fa-clock"></i>
+                        <div>
+                            <span class="status-label">Next Event</span>
+                            <span class="status-val">Kickoff in 45m</span>
+                        </div>
+                    </div>
+                    <div class="status-item">
+                        <i id="weather-icon" class="fas fa-temperature-half"></i>
+                        <div>
+                            <span class="status-label">Weather</span>
+                            <span class="status-val" id="weather-val">72°F / Clear</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 class="section-heading animated-entry delay-2">Highlights</h3>
+                <div class="highlights-grid animated-entry delay-2">
+                    <div class="highlight-card glass">
+                        <i class="fas fa-ticket-alt highlight-icon"></i>
+                        <h4>View Tickets</h4>
+                        <p>Access your digital passes instantly.</p>
+                    </div>
+                    <div class="highlight-card glass">
+                        <i class="fas fa-video highlight-icon"></i>
+                        <h4>Live Replays</h4>
+                        <p>Watch multiple angles of the action.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Map Section -->
+            <section id="section-map" class="view-section">
+                <h2 class="view-title">Stadium Map</h2>
+                <div class="map-container glass">
+                    <img src="stadium_map.jpg" alt="Stadium Layout Map" class="feature-image" id="map-image">
+                    
+                    <div class="map-controls">
+                        <button class="glass-btn active">All</button>
+                        <button class="glass-btn">Gates</button>
+                        <button class="glass-btn">Restrooms</button>
+                        <button class="glass-btn">Merch</button>
+                    </div>
+                </div>
+
+                <div class="heatmap-container glass animated-entry delay-1">
+                    <div class="heatmap-header">
+                        <h3>Crowd Heatmap</h3>
+                        <button id="refresh-heatmap" class="refresh-btn"><i class="fas fa-sync-alt"></i> Refresh</button>
+                    </div>
+                    <div class="heatmap-grid" id="heatmap-grid">
+                        <div class="zone-card density-medium" id="zone-a" data-zone="zoneA">
+                            <div class="zone-label">Zone A (North)</div>
+                            <div class="zone-density"><i class="fas fa-user-friends"></i> Medium</div>
+                        </div>
+                        <div class="zone-card density-low" id="zone-b" data-zone="zoneB">
+                            <div class="zone-label">Zone B (East)</div>
+                            <div class="zone-density"><i class="fas fa-user"></i> Low</div>
+                        </div>
+                        <div class="zone-card density-high" id="zone-c" data-zone="zoneC">
+                            <div class="zone-label">Zone C (South)</div>
+                            <div class="zone-density"><i class="fas fa-users"></i> High</div>
+                        </div>
+                        <div class="zone-card density-low" id="zone-d" data-zone="zoneD">
+                            <div class="zone-label">Zone D (West)</div>
+                            <div class="zone-density"><i class="fas fa-user"></i> Low</div>
+                        </div>
+                        <div class="zone-card density-low" id="zone-vip" data-zone="vip">
+                            <div class="zone-label">VIP Lounge</div>
+                            <div class="zone-density"><i class="fas fa-user"></i> Low</div>
+                        </div>
+                        <div class="zone-card density-medium" id="zone-food" data-zone="food">
+                            <div class="zone-label">Food Court</div>
+                            <div class="zone-density"><i class="fas fa-user-friends"></i> Medium</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="smart-nav-container glass animated-entry delay-2">
+                    <h3 class="nav-title">Smart Navigation</h3>
+                    <div class="nav-form">
+                        <div class="input-group">
+                            <label for="nav-from">From Location</label>
+                            <select id="nav-from" class="glass-select">
+                                <option value="Gate A">Gate A</option>
+                                <option value="Gate B">Gate B</option>
+                                <option value="Zone 1">Zone 1</option>
+                                <option value="Zone 2">Zone 2</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="nav-to">To Location</label>
+                            <select id="nav-to" class="glass-select">
+                                <option value="Food Court">Food Court</option>
+                                <option value="Exit">Exit</option>
+                                <option value="Washroom">Washroom</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button id="find-route-btn" class="action-btn">Find Best Route</button>
+                    
+                    <div id="route-result" class="route-result-box glass hidden">
+                        <!-- Result injected by JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Assistant Section -->
+            <section id="section-assistant" class="view-section">
+                <h2 class="view-title">AI Assistant</h2>
+                <div class="chat-container glass">
+                    <div class="chat-history" id="chat-history">
+                        <div class="chat-message bot">
+                            <div class="message-bubble glass">
+                                Hello! I'm your Smart Event Assistant. How can I help you today?
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-input-area">
+                        <input type="text" id="chat-input" placeholder="Ask me anything..." aria-label="Type your message">
+                        <button class="send-btn" id="send-btn" aria-label="Send Message"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Food Section -->
+            <section id="section-food" class="view-section">
+                <h2 class="view-title">Concessions</h2>
+                
+                <div class="food-category-filters">
+                    <div class="filter-pill active">Popular</div>
+                    <div class="filter-pill">Meals</div>
+                    <div class="filter-pill">Snacks</div>
+                    <div class="filter-pill">Drinks</div>
+                </div>
+
+                <div class="food-grid">
+                    <div class="food-card glass">
+                        <img src="stadium_food.jpg" alt="Classic Cheeseburger" class="food-img" id="food-image">
+                        <div class="food-info">
+                            <h4>Classic Burger</h4>
+                            <p class="food-desc">Beef patty, cheese, lettuce, house sauce</p>
+                            <div class="food-action">
+                                <span class="price">$12.00</span>
+                                <button class="add-btn"><i class="fas fa-plus"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="food-card glass">
+                        <div class="food-placeholder"><i class="fas fa-pizza-slice"></i></div>
+                        <div class="food-info">
+                            <h4>Pepperoni Slice</h4>
+                            <p class="food-desc">Large slice, extra cheese, crispy crust</p>
+                            <div class="food-action">
+                                <span class="price">$8.50</span>
+                                <button class="add-btn"><i class="fas fa-plus"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Emergency Section -->
+            <section id="section-emergency" class="view-section">
+                <h2 class="view-title text-danger">Emergency & Safety</h2>
+                
+                <div class="emergency-card glass border-danger">
+                    <i class="fas fa-exclamation-triangle text-danger icon-large"></i>
+                    <h3>Quick SOS</h3>
+                    <p>Alert stadium security to your immediate location.</p>
+                    <button class="btn-danger btn-large">Press to Alert Security</button>
+                </div>
+                
+                <div class="contacts-list">
+                    <div class="contact-item glass">
+                        <div class="contact-icon"><i class="fas fa-first-aid"></i></div>
+                        <div class="contact-text">
+                            <h4>Medical Assistance</h4>
+                            <p>Call First Responders</p>
+                        </div>
+                        <button class="btn-icon"><i class="fas fa-phone"></i></button>
+                    </div>
+                    <div class="contact-item glass">
+                        <div class="contact-icon"><i class="fas fa-shield-alt"></i></div>
+                        <div class="contact-text">
+                            <h4>Lost & Found</h4>
+                            <p>Report or find items</p>
+                        </div>
+                        <button class="btn-icon"><i class="fas fa-arrow-right"></i></button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav glass">
+            <button class="nav-item active" data-target="section-home">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </button>
+            <button class="nav-item" data-target="section-map">
+                <i class="emoji-icon" style="font-style: normal;">🗺️</i>
+                <span>Map</span>
+            </button>
+            <button class="nav-item" data-target="section-assistant">
+                <i class="fas fa-robot"></i>
+                <span>Assistant</span>
+            </button>
+            <button class="nav-item" data-target="section-food">
+                <i class="emoji-icon" style="font-style: normal;">🍔</i>
+                <span>Food</span>
+            </button>
+            <button class="nav-item" data-target="section-emergency">
+                <i class="emoji-icon" style="font-style: normal;">⚠️</i>
+                <span>Safety</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Generative Image placeholders handler -->
+    <script>
+        // Fallback if images aren't generated properly
+        document.getElementById('map-image').onerror = function() {
+            this.style.display = 'none';
+            this.parentElement.innerHTML += '<div class="image-fallback map-fallback"><i class="fas fa-map"></i><p>Map View</p></div>';
+        };
+        document.getElementById('food-image').onerror = function() {
+            this.style.display = 'none';
+            this.parentElement.insertAdjacentHTML('afterbegin', '<div class="food-placeholder"><i class="fas fa-hamburger"></i></div>');
+        };
+    </script>
+    <script type="module" src="script.js"></script>
+</body>
+</html>
