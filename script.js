@@ -538,12 +538,16 @@ function initSmartNav() {
 
 async function fetchWeather() {
     try {
-        const res = await fetch("/api/weather?lat=26.9&lon=75.8");
+        // Fetch by city name — update 'Jaipur' to your venue's city if needed
+        const res = await fetch("/api/weather?city=Jaipur");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
+        if (data.error) throw new Error(data.error);
         liveWeather = data;
         return data;
     } catch (e) {
         // Weather unavailable — graceful fallback, won't block UI
+        liveWeather = null;
         return null;
     }
 }
@@ -556,29 +560,38 @@ async function initWeather() {
     const weatherIcon = document.getElementById('weather-icon');
     if (!weatherVal) return;
 
-    // Set loading state immediately on load
+    // Show spinner while fetching
     weatherVal.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 5px; font-size: 0.8rem;"></i>Loading...';
 
     await fetchWeather();
 
     if (liveWeather && !liveWeather.error) {
-        weatherVal.textContent = `${liveWeather.temp}° / ${liveWeather.condition}`;
+        // Display: e.g. "28°C · Partly cloudy"
+        weatherVal.textContent = `${liveWeather.temp}°C · ${liveWeather.description
+            .split(' ')
+            .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(' ')}`;
 
-        // Dynamically update weather icon based on live condition
-        const descLower = liveWeather.condition.toLowerCase();
-        if (descLower.includes('cloud')) {
-            weatherIcon.className = "fas fa-cloud";
-        } else if (descLower.includes('rain') || descLower.includes('drizzle')) {
-            weatherIcon.className = "fas fa-cloud-rain";
-        } else if (descLower.includes('thunder')) {
-            weatherIcon.className = "fas fa-bolt";
-        } else if (descLower.includes('snow')) {
-            weatherIcon.className = "fas fa-snowflake";
+        // Update weather icon from live condition
+        const cond = liveWeather.condition.toLowerCase();
+        if (cond.includes('cloud')) {
+            weatherIcon.className = 'fas fa-cloud';
+        } else if (cond.includes('rain') || cond.includes('drizzle')) {
+            weatherIcon.className = 'fas fa-cloud-rain';
+        } else if (cond.includes('thunder')) {
+            weatherIcon.className = 'fas fa-bolt';
+        } else if (cond.includes('snow')) {
+            weatherIcon.className = 'fas fa-snowflake';
+        } else if (cond.includes('mist') || cond.includes('fog') || cond.includes('haze')) {
+            weatherIcon.className = 'fas fa-smog';
         } else {
-            weatherIcon.className = "fas fa-sun"; // Default to clear
+            weatherIcon.className = 'fas fa-sun';
         }
+
+        // Add tooltip with extra details
+        weatherVal.title = `Feels like ${liveWeather.feelsLike}°C · Humidity ${liveWeather.humidity}% · Wind ${liveWeather.windSpeed} m/s`;
     } else {
-        weatherVal.textContent = "Weather unavailable";
-        weatherIcon.className = "fas fa-temperature-half";
+        weatherVal.textContent = 'Weather unavailable';
+        weatherIcon.className = 'fas fa-temperature-half';
     }
 }
