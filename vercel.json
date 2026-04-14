@@ -1,12 +1,7 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "api/ai.js", "use": "@vercel/node" },
-    { "src": "api/weather.js", "use": "@vercel/node" }
-  ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1.js" },
     { "handle": "filesystem" },
-    { "src": "/", "dest": "/index.html" }
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
