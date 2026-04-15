@@ -175,7 +175,7 @@ function safeInit(name, fn) {
     try {
         fn();
     } catch (e) {
-        console.error(`[Boot] ${name} FAILED:`, e.message);
+        console.error(name, e);
     }
 }
 
@@ -1221,7 +1221,8 @@ function initSystemHealthCheck() {
     const indicator = document.createElement('div');
     indicator.className = 'health-indicator';
     indicator.style.display = 'block';
-    indicator.innerHTML = 'SYS: ACTIVE | FB: ... | AI: ...';
+    indicator.innerHTML = 'SYS: ACTIVE | FB: 0 | AI: 0';
+
     document.body.appendChild(indicator);
 
     setInterval(() => {
@@ -1412,8 +1413,8 @@ function initAIInsights() {
         const events  = data.events ? Object.values(data.events).sort((a,b) => b.t - a.t) : [];
 
         // Update Public Metrics
-        if (qEl) qEl.textContent = events.length;
-        if (lEl) lEl.textContent = summary.last_latency ? `${summary.last_latency}ms` : '---';
+        if (qEl) qEl.textContent = events.length || 0;
+        if (lEl) lEl.textContent = summary.last_latency ? `${summary.last_latency}ms` : '0ms';
 
         // Production UI Transition: Remove shimmers and update aria-busy
         const grids = document.querySelectorAll('.impact-grid[aria-busy="true"]');
