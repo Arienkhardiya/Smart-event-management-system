@@ -44,6 +44,7 @@ let liveCrowdData = {};
 let liveWeather     = null;
 let chatSessionHistory = [];
 let lastAIResponseTime = 0; // Telemetry for Health Bar
+let _insightsUnsubscribe = () => {}; // Safe global fallback
 
 const ZONE_LABELS = { 
     zoneA: 'Zone A', 
@@ -168,26 +169,19 @@ function updateBestZoneWidget() {
 
 /**
  * Safe Initialization Wrapper
- * Ensures that if one module fails (e.g. Weather API), the rest of the app still boots.
+ * Ensures that if one module fails, the rest of the app still boots.
  */
-async function safeInit(name, fn) {
+function safeInit(name, fn) {
     try {
-        if (fn.constructor.name === 'AsyncFunction') {
-            await fn();
-        } else {
-            fn();
-        }
-        
-    } catch (err) {
-        console.warn(`[Boot] ${name} ... FAILED:`, err.message);
+        fn();
+    } catch (e) {
+        console.error(`[Boot] ${name} FAILED:`, e.message);
     }
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    
-    
+document.addEventListener('DOMContentLoaded', () => {
     // Core setup first
-    await safeInit('Auth', () => initAuth(app));
+    safeInit('Auth', () => initAuth(app));
 
     // Parallel initialization for UI modules
     safeInit('Navigation',   initNavigation);
@@ -1443,4 +1437,39 @@ function initAIInsights() {
             `).join('');
         }
     });
+}
+/**
+ * Links Map Zone Cards to the Smart Navigation tool.
+ */
+function initMapInteractions() {
+    const zones = document.querySelectorAll('.zone-card');
+    if (!zones.length) return;
+
+    zones.forEach(card => {
+        card.addEventListener('click', () => {
+            const zoneKey = card.dataset.zone || card.innerText;
+            if (zoneKey) {
+                handleZoneClick(zoneKey);
+                
+                // Visual feedback pulse
+                card.classList.add('zone-active-pulse');
+                setTimeout(() => card.classList.remove('zone-active-pulse'), 1000);
+            }
+        });
+    });
+}
+
+/**
+ * Handles clicks from the Map Heatmap by switching to the Map view (Home tab)
+ * and configuring the 'From' location automatically.
+ */
+function handleZoneClick(zoneName) {
+    const navHome = document.querySelector('[data-target="section-home"]');
+    if (navHome) navHome.click();
+
+    const fromSelect = document.querySelector('#nav-from');
+    if (fromSelect) fromSelect.value = zoneName;
+
+    const navForm = document.querySelector('.smart-nav-container');
+    if (navForm) setTimeout(() => navForm.scrollIntoView({ behavior: 'smooth' }), 150);
 }

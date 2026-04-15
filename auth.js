@@ -56,7 +56,7 @@ export async function initAuth(firebaseApp) {
         _analytics = getAnalytics(firebaseApp);
     } catch (e) {
         // This is expected in production if user uses an ad-blocker
-        console.log('[Auth] Firebase Analytics suppressed by environment or ad-blocker.');
+        
     }
 
     return _auth;
