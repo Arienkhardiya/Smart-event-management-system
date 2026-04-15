@@ -163,30 +163,50 @@ function updateBestZoneWidget() {
     `;
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    // Sequence initialization: Auth must be ready before UI triggers
+//  GLOBAL ENTRY POINT & BOOTLOADER
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Safe Initialization Wrapper
+ * Ensures that if one module fails (e.g. Weather API), the rest of the app still boots.
+ */
+async function safeInit(name, fn) {
     try {
-        await initAuth(app);
-        initNavigation();
-        initChatAI();
-        initFilters();
-        listenToCrowdData();
-        initSmartNav();
-        initWeather();
-        initSimulator();
-        initAuthUI();
-        initInsightsPanel();
-        initKeyboardNav();
-        initSystemHealthCheck();
-        initProactiveSuggestions();
-        initImpactMetrics();
-        initAIInsights();
-        initMapInteractions(); // NEW: Link Map-to-Nav
-        loadChatHistory(); // Restore after Auth and UI are ready
+        if (fn.constructor.name === 'AsyncFunction') {
+            await fn();
+        } else {
+            fn();
+        }
+        console.log(`[Boot] ${name} ... OK`);
     } catch (err) {
-        console.error("Critical Boot Error:", err);
-        showGlobalError("System initialization failed. Retrying...");
+        console.warn(`[Boot] ${name} ... FAILED:`, err.message);
     }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log("🚀 System Booting...");
+    
+    // Core setup first
+    await safeInit('Auth', () => initAuth(app));
+
+    // Parallel initialization for UI modules
+    safeInit('Navigation',   initNavigation);
+    safeInit('ChatAI',       initChatAI);
+    safeInit('Filters',      initFilters);
+    safeInit('CrowdData',    listenToCrowdData);
+    safeInit('SmartNav',     initSmartNav);
+    safeInit('Weather',      initWeather);
+    safeInit('Simulator',    initSimulator);
+    safeInit('AuthUI',       initAuthUI);
+    safeInit('Insights',     initInsightsPanel);
+    safeInit('KeyboardNav',  initKeyboardNav);
+    safeInit('HealthCheck',  initSystemHealthCheck);
+    safeInit('Proactive',    initProactiveSuggestions);
+    safeInit('Impact',       initImpactMetrics);
+    safeInit('AIInsights',   initAIInsights);
+    safeInit('MapLink',      initMapInteractions);
+    
+    safeInit('Persistence',  loadChatHistory);
 });
 
 // ── Global Error Boundary ──────────────────────────────────────────────
@@ -201,7 +221,7 @@ function showGlobalError(msg) {
     const errorBar = document.createElement('div');
     errorBar.className = 'glass animated-entry';
     errorBar.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--danger); padding:10px 20px; border-radius:10px; z-index:9999; font-size:0.8rem;';
-    errorBar.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${msg}`;
+    errorBar.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> ${msg}`;
     document.body.appendChild(errorBar);
     setTimeout(() => errorBar.remove(), 5000);
 }
@@ -212,6 +232,7 @@ function showGlobalError(msg) {
 function initNavigation() {
     const navItems = document.querySelectorAll('.nav-item');
     const viewSections = document.querySelectorAll('.view-section');
+    if (!navItems.length || !viewSections.length) return;
 
     navItems.forEach(item => {
         item.addEventListener('click', () => {
@@ -299,6 +320,7 @@ function initChatAI() {
     const chatInput = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
     const chatHistory = document.getElementById('chat-history');
+    if (!chatInput || !sendBtn || !chatHistory) return;
 
     const keywords = {
         food: ["food", "hungry", "eat", "burger", "pizza", "snack"],
@@ -407,6 +429,7 @@ function initChatAI() {
             logInteraction(message, 'fallback_offline').catch(() => {});
             trackEvent('ai_query', { source: 'fallback_offline', topic: classifyTopic(message) });
         } finally {
+            isAiBusy = false;
             sendBtn.disabled = false;
             chatInput.disabled = false;
             chatInput.focus();
@@ -601,6 +624,7 @@ function initChatAI() {
  */
 function initFilters() {
     const filters = document.querySelectorAll('.filter-pill');
+    if (!filters.length) return;
     filters.forEach(filter => {
         filter.addEventListener('click', () => {
             filters.forEach(f => f.classList.remove('active'));
@@ -635,11 +659,11 @@ function updateHeatmapUI(data) {
             el.classList.add(`density-${val}`);
 
             // Maintain original UI text visuals gracefully
-            const iconClass = val === 'low' ? 'fa-user' : (val === 'medium' ? 'fa-user-friends' : 'fa-users');
+            const iconClass = val === 'low' ? 'fa-user' : (val === 'medium' ? 'fa-user-group' : 'fa-users');
             const labelCapitalized = val.charAt(0).toUpperCase() + val.slice(1);
             const densityDiv = el.querySelector('.zone-density');
 
-            densityDiv.innerHTML = `<i class="fas ${iconClass}"></i> ${labelCapitalized}`;
+            densityDiv.innerHTML = `<i class="fa-solid ${iconClass}"></i> ${labelCapitalized}`;
         }
     });
 
@@ -696,7 +720,7 @@ function initSimulator() {
     }
 
     // Morph the legacy refresh button into the Live Simulator Controller dynamically
-    simBtn.innerHTML = '<i class="fas fa-play"></i> Start Demo';
+    simBtn.innerHTML = '<i class="fa-solid fa-play"></i> Start Demo';
 
     // Inject the required text label underneath
     const headerDiv = simBtn.parentElement;
@@ -706,21 +730,21 @@ function initSimulator() {
     demoContext.style.marginTop = "8px";
     demoContext.style.fontWeight = "bold";
     demoContext.style.display = "none";
-    demoContext.innerHTML = `<i class="fas fa-satellite-dish" style="margin-right: 5px;"></i> Live AI responding to real-time stadium conditions`;
+    demoContext.innerHTML = `<i class="fa-solid fa-satellite-dish" style="margin-right: 5px;"></i> Live AI responding to real-time stadium conditions`;
     headerDiv.parentElement.insertBefore(demoContext, headerDiv.nextSibling);
 
     simBtn.addEventListener('click', () => {
         if (isSimulating) {
             clearInterval(simInterval);
             isSimulating = false;
-            simBtn.innerHTML = '<i class="fas fa-play"></i> Start Demo';
+            simBtn.innerHTML = '<i class="fa-solid fa-play"></i> Start Demo';
             simBtn.classList.remove('spinning');
             demoContext.style.display = 'none';
         } else {
             simulateCrowd(); // Trigger instantaneous first load
             simInterval = setInterval(simulateCrowd, 10000);
             isSimulating = true;
-            simBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Demo';
+            simBtn.innerHTML = '<i class="fa-solid fa-stop"></i> Stop Demo';
             simBtn.classList.add('spinning');
             demoContext.style.display = 'block';
 
@@ -765,7 +789,7 @@ function initSmartNav() {
 
         // Animate Button
         const originalText = findRouteBtn.innerHTML;
-        findRouteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Finding Best Route...';
+        findRouteBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Finding Best Route...';
         findRouteBtn.style.opacity = '0.8';
 
         setTimeout(() => {
@@ -789,10 +813,10 @@ function initSmartNav() {
                                 <span class="step-name">${name}</span>
                                 <div class="step-meta">
                                     <span class="density-pill ${density}">${density.toUpperCase()}</span>
-                                    <span class="wait-tag"><i class="far fa-clock"></i> ${waitTime}</span>
+                                    <span class="wait-tag"><i class="fa-solid fa-clock"></i> ${waitTime}</span>
                                 </div>
                             </div>
-                            ${index < bestPath.length - 1 ? '<i class="fas fa-chevron-right route-arrow"></i>' : ''}
+                            ${index < bestPath.length - 1 ? '<i class="fa-solid fa-chevron-right route-arrow"></i>' : ''}
                         </div>
                     `;
                 }).join('');
@@ -801,7 +825,7 @@ function initSmartNav() {
                     <div class="route-header">Optimal Path for ${userName || 'you'}</div>
                     <div class="route-breadcrumbs">${breadcrumbsHTML}</div>
                     <div class="route-footer">
-                        <i class="fas fa-info-circle"></i> This route avoids high-crowd areas to save you time.
+                        <i class="fa-solid fa-circle-info"></i> This route avoids high-crowd areas to save you time.
                     </div>
                 `;
                 
@@ -852,7 +876,7 @@ async function initWeather() {
     if (!weatherVal) return;
 
     // Show spinner while fetching
-    weatherVal.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 5px; font-size: 0.8rem;"></i>Loading...';
+    weatherVal.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right: 5px; font-size: 0.8rem;"></i>Loading...';
 
     await fetchWeather();
 
@@ -863,26 +887,28 @@ async function initWeather() {
             .map(w => w.charAt(0).toUpperCase() + w.slice(1))
             .join(' ')}`;
 
-        // Update weather icon from live condition
-        const cond = liveWeather.condition.toLowerCase();
-        if (cond.includes('cloud')) {
-            weatherIcon.className = 'fas fa-cloud';
-        } else if (cond.includes('rain') || cond.includes('drizzle')) {
-            weatherIcon.className = 'fas fa-cloud-rain';
-        } else if (cond.includes('thunder')) {
-            weatherIcon.className = 'fas fa-bolt';
-        } else if (cond.includes('snow')) {
-            weatherIcon.className = 'fas fa-snowflake';
-        } else if (cond.includes('mist') || cond.includes('fog') || cond.includes('haze')) {
-            weatherIcon.className = 'fas fa-smog';
-        } else {
-            weatherIcon.className = 'fas fa-sun';
+        if (weatherIcon) {
+            // Update weather icon from live condition
+            const cond = liveWeather.condition.toLowerCase();
+            if (cond.includes('cloud')) {
+                weatherIcon.className = 'fa-solid fa-cloud';
+            } else if (cond.includes('rain') || cond.includes('drizzle')) {
+                weatherIcon.className = 'fa-solid fa-cloud-rain';
+            } else if (cond.includes('thunder')) {
+                weatherIcon.className = 'fa-solid fa-bolt';
+            } else if (cond.includes('snow')) {
+                weatherIcon.className = 'fa-solid fa-snowflake';
+            } else if (cond.includes('mist') || cond.includes('fog') || cond.includes('haze')) {
+                weatherIcon.className = 'fa-solid fa-smog';
+            } else {
+                weatherIcon.className = 'fa-solid fa-sun';
+            }
         }
         // Add tooltip with extra details
         weatherVal.title = `Feels like ${liveWeather.feelsLike}°C · Humidity ${liveWeather.humidity}% · Wind ${liveWeather.windSpeed} m/s`;
     } else {
         weatherVal.textContent = 'Weather unavailable';
-        weatherIcon.className = 'fas fa-temperature-half';
+        if (weatherIcon) weatherIcon.className = 'fa-solid fa-temperature-half';
     }
 }
 
@@ -1026,29 +1052,6 @@ function createFocusTrap(containerEl, onEscape) {
 let _focusTrapCleanup  = null;  // holds the focus-trap removal function
 let _panelOpenerEl     = null;  // element that opened the panel (for focus return)
 
-function openInsightsPanel() {
-    const panel   = document.getElementById('insights-panel');
-    const overlay = document.getElementById('insights-overlay');
-    const btn     = document.getElementById('user-chip-btn');
-    if (!panel) return;
-
-    // Remember opener so we can return focus on close (WCAG 2.4.3)
-    _panelOpenerEl = document.activeElement;
-
-    panel.classList.remove('hidden');
-    if (overlay) { overlay.classList.remove('hidden'); overlay.removeAttribute('aria-hidden'); }
-
-    // Update aria-expanded on the trigger button (WCAG 4.1.2)
-    if (btn) btn.setAttribute('aria-expanded', 'true');
-
-    // Slide-in animation
-    requestAnimationFrame(() => {
-        panel.classList.add('open');
-        // Install focus trap after animation frame so the panel is painted
-        _focusTrapCleanup = createFocusTrap(panel, closeInsightsPanel);
-    });
-}
-
 function closeInsightsPanel() {
     const panel   = document.getElementById('insights-panel');
     const overlay = document.getElementById('insights-overlay');
@@ -1083,23 +1086,37 @@ function closeInsightsPanel() {
  *  - Subscribes to /analytics_summary for real-time stat updates
  */
 function initInsightsPanel() {
-    const userChipBtn  = document.getElementById('user-chip-btn');
-    const closeBtn     = document.getElementById('insights-close-btn');
-    const overlay      = document.getElementById('insights-overlay');
+    const overlay  = document.getElementById('insights-overlay');
+    const panel    = document.getElementById('insights-panel');
+    const openBtn   = document.getElementById('user-chip-btn');
+    const closeBtn  = document.getElementById('insights-close-btn');
 
-    if (userChipBtn) {
-        userChipBtn.addEventListener('click', () => {
-            const panel = document.getElementById('insights-panel');
-            if (panel && panel.classList.contains('open')) {
-                closeInsightsPanel();
-            } else {
-                openInsightsPanel();
-            }
-        });
+    if (!overlay || !panel || !openBtn || !closeBtn) return;
+
+    function openInsightsPanel() {
+        overlay.classList.remove('hidden');
+        panel.classList.remove('hidden');
+        overlay.ariaHidden = 'false';
+        openBtn.setAttribute('aria-expanded', 'true');
+        
+        // Setup focus trap and escape listener
+        const cleanup = createFocusTrap(panel, closeInsightsPanel);
+        panel.dataset.trapCleanup = cleanup; // store for removal
+        
+        panel.classList.add('open');
+        _panelOpenerEl = document.activeElement;
     }
 
-    if (closeBtn)  closeBtn.addEventListener('click', closeInsightsPanel);
-    if (overlay)   overlay.addEventListener('click', closeInsightsPanel);
+    openBtn.addEventListener('click', () => {
+        if (panel.classList.contains('open')) {
+            closeInsightsPanel();
+        } else {
+            openInsightsPanel();
+        }
+    });
+
+    closeBtn.addEventListener('click', closeInsightsPanel);
+    overlay.addEventListener('click', closeInsightsPanel);
 
     // Subscribe to /analytics_summary — fires every time Firebase data changes
     _insightsUnsubscribe = listenToAnalyticsSummary((summary) => {
@@ -1317,6 +1334,7 @@ function initImpactMetrics() {
     const redirectEl = document.getElementById('metric-redirects');
     const avoidedEl = document.getElementById('metric-avoided');
     const tfBtns = document.querySelectorAll('.tf-btn');
+    if (!timeEl || !redirectEl || !avoidedEl) return;
 
     let currentMode = 'cumulative'; // 'cumulative' | 'hourly'
     let lastData = null;

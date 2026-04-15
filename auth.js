@@ -34,21 +34,29 @@ let _db        = null;
  * @returns {Promise<object>} Firebase Auth instance
  */
 export async function initAuth(firebaseApp) {
-    _db   = getDatabase(firebaseApp);
-    _auth = getAuth(firebaseApp);
+    if (!firebaseApp) throw new Error('[Auth] Firebase App not provided');
+
+    try {
+        _db   = getDatabase(firebaseApp);
+        _auth = getAuth(firebaseApp);
+    } catch (e) {
+        console.error('[Auth] Essential Firebase services failed:', e.message);
+        throw e; // Core services are required
+    }
 
     // Explicitly set local persistence to ensure sessions survive refresh
     try {
         await setPersistence(_auth, browserLocalPersistence);
     } catch (e) {
-        console.warn('[Auth] Persistence setup failed:', e.message);
+        console.warn('[Auth] Persistence setup failed (non-fatal):', e.message);
     }
 
-    // Analytics can be blocked by ad-blockers or unavailable in some environments — fail gracefully
+    // Analytics can be blocked by ad-blockers — fail gracefully
     try {
         _analytics = getAnalytics(firebaseApp);
     } catch (e) {
-        console.warn('[Auth] Firebase Analytics unavailable:', e.message);
+        // This is expected in production if user uses an ad-blocker
+        console.log('[Auth] Firebase Analytics suppressed by environment or ad-blocker.');
     }
 
     return _auth;
