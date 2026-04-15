@@ -181,6 +181,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         initProactiveSuggestions();
         initImpactMetrics();
         initAIInsights();
+        initMapInteractions(); // NEW: Link Map-to-Nav
         loadChatHistory(); // Restore after Auth and UI are ready
     } catch (err) {
         console.error("Critical Boot Error:", err);
@@ -1165,59 +1166,6 @@ function updateInsightsUI(summary) {
                     </div>`;
             }).join('');
         }
-    }
-}
-
-/**
- * Detects ?debug=true and runs a 'Lite' version of the test suite.
- */
-function initSystemHealthCheck() {
-    const params = new URLSearchParams(window.location.search);
-    const isDebug = params.get('debug') === 'true';
-    const bar = document.getElementById('system-health-bar');
-    const label = document.getElementById('health-label');
-    const detailsBtn = document.getElementById('health-details-btn');
-
-    if (!isDebug || !bar) return;
-
-    // Show the bar immediately
-    bar.classList.remove('hidden');
-    label.textContent = "Running diagnostics...";
-
-    setTimeout(() => {
-        try {
-            // ── LITE TEST SUITE (Core Logic Only) ──────────────────────────
-            // 1. Route Logic Check
-            const testPath = getBestRoute('gateA', 'food');
-            if (!testPath || testPath.length === 0) throw new Error("Graph routing failed");
-
-            // 2. Crowd Logic Check
-            const bestZone = getBestZone();
-            if (!bestZone || !bestZone.all) throw new Error("Crowd parsing failed");
-
-            // 3. AI / Topic Logic Check
-            const topic = classifyTopic("where is the food?");
-            if (topic !== 'food') throw new Error("Topic classification failed");
-
-            // Everything passed!
-            bar.classList.add('healthy');
-            label.textContent = "System Healthy";
-        } catch (err) {
-            bar.classList.add('warning');
-            label.textContent = "Logic Error Detected";
-            console.error("❌ System Health Warning:", err.message);
-        }
-    }, 1000);
-
-    // Manual Detail Trigger
-    if (detailsBtn) {
-        detailsBtn.addEventListener('click', () => {
-            if (window.runFullTestSuite) {
-                window.runFullTestSuite();
-            } else {
-                alert("Please check console for results.");
-            }
-        });
     }
 }
 
