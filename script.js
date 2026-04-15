@@ -1202,7 +1202,6 @@ function initSystemHealthCheck() {
             // Everything passed!
             bar.classList.add('healthy');
             label.textContent = "System Healthy";
-            console.log("✅ In-app health check passed. Clear for launch.");
         } catch (err) {
             bar.classList.add('warning');
             label.textContent = "Logic Error Detected";
