@@ -2,6 +2,10 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
 import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
+import {
+    initAuth, signInWithGoogle, signOutUser, onAuthChange,
+    logInteraction, trackEvent, listenToAnalyticsSummary, classifyTopic
+} from './auth.js';
 
 const firebaseConfig = {
     apiKey: "AIzaSyAxb_6lMmoA7E4j7Ogp0Ut6K0SD9A1AJl8",
@@ -16,6 +20,9 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+
+// Initialize Firebase Auth & Analytics (must run before DOMContentLoaded)
+initAuth(app);
 
 let liveCrowdData = {};
 let liveWeather = null;
@@ -85,6 +92,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initSmartNav();
     initWeather();
     initSimulator();
+    initAuthUI();        // Google Sign-In / Sign-Out header widget
+    initInsightsPanel(); // Real-time analytics drawer
+    initKeyboardNav();   // Arrow-key navigation between bottom nav tabs (WCAG 2.1.1)
 });
 
 /**
@@ -97,10 +107,15 @@ function initNavigation() {
     navItems.forEach(item => {
         item.addEventListener('click', () => {
             // Remove active class from all nav items
-            navItems.forEach(nav => nav.classList.remove('active'));
+            navItems.forEach(nav => {
+                nav.classList.remove('active');
+                // WCAG 4.1.2 — aria-current must reflect state change
+                nav.setAttribute('aria-current', 'false');
+            });
 
             // Add active class to clicked nav item
             item.classList.add('active');
+            item.setAttribute('aria-current', 'page');
 
             // Hide all sections
             viewSections.forEach(section => {
@@ -119,6 +134,43 @@ function initNavigation() {
                         document.getElementById('chat-input').focus();
                     }, 100);
                 }
+            }
+
+            // Track tab switch in Firebase Analytics
+            trackEvent('tab_switch', { tab: targetId || 'unknown' });
+        });
+    });
+}
+
+/**
+ * Adds left/right arrow-key navigation for the bottom nav bar (WCAG 2.1.1 — Keyboard).
+ * This follows the ARIA Authoring Practices Guide pattern for a tab list.
+ */
+function initKeyboardNav() {
+    const navItems = Array.from(document.querySelectorAll('.nav-item'));
+    if (!navItems.length) return;
+
+    navItems.forEach((item, index) => {
+        item.addEventListener('keydown', (e) => {
+            let targetIndex = -1;
+
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                targetIndex = (index + 1) % navItems.length;
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                targetIndex = (index - 1 + navItems.length) % navItems.length;
+            } else if (e.key === 'Home') {
+                e.preventDefault();
+                targetIndex = 0;
+            } else if (e.key === 'End') {
+                e.preventDefault();
+                targetIndex = navItems.length - 1;
+            }
+
+            if (targetIndex >= 0) {
+                navItems[targetIndex].focus();
+                navItems[targetIndex].click(); // Also switch the tab
             }
         });
     });
@@ -203,6 +255,11 @@ function initChatAI() {
             const response = await processMessageWithGemini(message);
             removeTypingIndicator(typingId);
             appendMessage(response, 'bot');
+
+            // Log interaction to Firebase + fire Analytics event
+            logInteraction(message, 'gemini').catch(() => {});
+            trackEvent('ai_query', { source: 'gemini', topic: classifyTopic(message) });
+            incrementSessionQueryCount();
         } catch (error) {
             // Fallback to local logic if network fails, or key missing
             console.warn("Gemini API skipped/failed, using local fallback NLP.", error.message);
@@ -214,6 +271,11 @@ function initChatAI() {
                 // Removed chat cache
                 removeTypingIndicator(typingId);
                 appendMessage(fallbackResponse, 'bot');
+
+                // Log fallback interaction to Firebase
+                logInteraction(message, 'fallback').catch(() => {});
+                trackEvent('ai_query', { source: 'fallback', topic: classifyTopic(message) });
+                incrementSessionQueryCount();
             }, 800);
         }
     };
@@ -625,6 +687,14 @@ async function fetchWeather() {
 /**
  * Initializes the Weather API Fetch Logic using stationary stadium coordinates
  */
+// ─── Session Query Counter (in-memory, per page load) ───────────────────────
+let _sessionQueryCount = 0;
+function incrementSessionQueryCount() {
+    _sessionQueryCount++;
+    const el = document.getElementById('insight-mine');
+    if (el) el.textContent = String(_sessionQueryCount);
+}
+
 async function initWeather() {
     const weatherVal = document.getElementById('weather-val');
     const weatherIcon = document.getElementById('weather-icon');
@@ -657,11 +727,293 @@ async function initWeather() {
         } else {
             weatherIcon.className = 'fas fa-sun';
         }
-
         // Add tooltip with extra details
         weatherVal.title = `Feels like ${liveWeather.feelsLike}°C · Humidity ${liveWeather.humidity}% · Wind ${liveWeather.windSpeed} m/s`;
     } else {
         weatherVal.textContent = 'Weather unavailable';
         weatherIcon.className = 'fas fa-temperature-half';
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  AUTH UI — Google Sign-In / Sign-Out header widget
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Wires the header auth widget:
+ *  - Sign-in button → triggers Google popup
+ *  - Auth state changes → swap between sign-in button and user chip
+ *  - Sign-out button (inside Insights Panel) → signs out and resets UI
+ */
+function initAuthUI() {
+    const signinBtn    = document.getElementById('signin-btn');
+    const userChipBtn  = document.getElementById('user-chip-btn');
+    const signoutBtn   = document.getElementById('signout-btn');
+    const userAvatar   = document.getElementById('user-avatar');
+    const userDispName = document.getElementById('user-display-name');
+
+    // Sign in
+    if (signinBtn) {
+        signinBtn.addEventListener('click', async () => {
+            signinBtn.disabled = true;
+            signinBtn.style.opacity = '0.7';
+            try {
+                await signInWithGoogle();
+            } catch (err) {
+                console.warn('[Auth] Sign-in cancelled or failed:', err.message);
+            } finally {
+                signinBtn.disabled = false;
+                signinBtn.style.opacity = '1';
+            }
+        });
+    }
+
+    // Sign out (inside Insights Panel)
+    if (signoutBtn) {
+        signoutBtn.addEventListener('click', async () => {
+            closeInsightsPanel();
+            await signOutUser();
+        });
+    }
+
+    // React to auth state on every page load and after sign-in/out
+    onAuthChange((user) => {
+        if (user) {
+            // ── Logged in ──────────────────────────────────────────────────
+            if (signinBtn)    signinBtn.classList.add('hidden');
+            if (userChipBtn)  userChipBtn.classList.remove('hidden');
+
+            // Populate chip
+            if (userAvatar && user.photoURL) {
+                userAvatar.src = user.photoURL;
+                userAvatar.style.display = 'block';
+            }
+            if (userDispName) {
+                // Use first name only for compact display
+                userDispName.textContent = (user.displayName || 'User').split(' ')[0];
+            }
+
+            // Populate Insights Panel user card
+            const iAvatar = document.getElementById('insight-avatar');
+            const iName   = document.getElementById('insight-user-name');
+            const iEmail  = document.getElementById('insight-user-email');
+            if (iAvatar && user.photoURL) { iAvatar.src = user.photoURL; iAvatar.style.display = 'block'; }
+            if (iName)  iName.textContent  = user.displayName || 'User';
+            if (iEmail) iEmail.textContent = user.email || '';
+
+            // Show the live users badge once someone is logged in
+            const badge = document.getElementById('live-users-badge');
+            if (badge) badge.classList.remove('hidden');
+
+        } else {
+            // ── Logged out ─────────────────────────────────────────────────
+            if (signinBtn)    signinBtn.classList.remove('hidden');
+            if (userChipBtn)  userChipBtn.classList.add('hidden');
+
+            const badge = document.getElementById('live-users-badge');
+            if (badge) badge.classList.add('hidden');
+        }
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  INSIGHTS PANEL — slide-in drawer with real-time Firebase stats
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Focus trap helper ─────────────────────────────────────────────────────
+//
+// Returns a cleanup function. Traps Tab/Shift+Tab within `containerEl`
+// and closes the panel on Escape. Follows WCAG 2.1 — 2.1.2 No Keyboard Trap:
+// the trap is intentional for a modal dialog, Escape always provides an exit.
+//
+function createFocusTrap(containerEl, onEscape) {
+    const FOCUSABLE = [
+        'a[href]',
+        'button:not([disabled])',
+        'input:not([disabled])',
+        'select:not([disabled])',
+        'textarea:not([disabled])',
+        '[tabindex]:not([tabindex="-1"])'
+    ].join(', ');
+
+    function handleKey(e) {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            onEscape();
+            return;
+        }
+        if (e.key !== 'Tab') return;
+
+        const focusable = Array.from(containerEl.querySelectorAll(FOCUSABLE))
+            .filter(el => !el.closest('[aria-hidden="true"]'));
+        if (!focusable.length) return;
+
+        const first = focusable[0];
+        const last  = focusable[focusable.length - 1];
+
+        if (e.shiftKey) {
+            if (document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            }
+        } else {
+            if (document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        }
+    }
+
+    containerEl.addEventListener('keydown', handleKey);
+    // Auto-focus first focusable element inside the panel
+    const firstFocusable = containerEl.querySelector(FOCUSABLE);
+    if (firstFocusable) firstFocusable.focus();
+
+    return () => containerEl.removeEventListener('keydown', handleKey);
+}
+
+let _focusTrapCleanup  = null;  // holds the focus-trap removal function
+let _panelOpenerEl     = null;  // element that opened the panel (for focus return)
+
+function openInsightsPanel() {
+    const panel   = document.getElementById('insights-panel');
+    const overlay = document.getElementById('insights-overlay');
+    const btn     = document.getElementById('user-chip-btn');
+    if (!panel) return;
+
+    // Remember opener so we can return focus on close (WCAG 2.4.3)
+    _panelOpenerEl = document.activeElement;
+
+    panel.classList.remove('hidden');
+    if (overlay) { overlay.classList.remove('hidden'); overlay.removeAttribute('aria-hidden'); }
+
+    // Update aria-expanded on the trigger button (WCAG 4.1.2)
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+
+    // Slide-in animation
+    requestAnimationFrame(() => {
+        panel.classList.add('open');
+        // Install focus trap after animation frame so the panel is painted
+        _focusTrapCleanup = createFocusTrap(panel, closeInsightsPanel);
+    });
+}
+
+function closeInsightsPanel() {
+    const panel   = document.getElementById('insights-panel');
+    const overlay = document.getElementById('insights-overlay');
+    const btn     = document.getElementById('user-chip-btn');
+    if (!panel) return;
+
+    panel.classList.remove('open');
+    if (overlay) { overlay.classList.add('hidden'); overlay.setAttribute('aria-hidden', 'true'); }
+
+    // Update aria-expanded (WCAG 4.1.2)
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+
+    // Remove focus trap
+    if (_focusTrapCleanup) { _focusTrapCleanup(); _focusTrapCleanup = null; }
+
+    // Return focus to the element that opened the panel (WCAG 2.4.3)
+    if (_panelOpenerEl && typeof _panelOpenerEl.focus === 'function') {
+        _panelOpenerEl.focus();
+        _panelOpenerEl = null;
+    }
+
+    // Wait for slide-out then hide from DOM
+    setTimeout(() => {
+        if (panel) panel.classList.add('hidden');
+    }, 320);
+}
+
+/**
+ * Initializes the Insights Panel:
+ *  - Opens when user-chip-btn is clicked
+ *  - Closes via close button or overlay click
+ *  - Subscribes to /analytics_summary for real-time stat updates
+ */
+function initInsightsPanel() {
+    const userChipBtn  = document.getElementById('user-chip-btn');
+    const closeBtn     = document.getElementById('insights-close-btn');
+    const overlay      = document.getElementById('insights-overlay');
+
+    if (userChipBtn) {
+        userChipBtn.addEventListener('click', () => {
+            const panel = document.getElementById('insights-panel');
+            if (panel && panel.classList.contains('open')) {
+                closeInsightsPanel();
+            } else {
+                openInsightsPanel();
+            }
+        });
+    }
+
+    if (closeBtn)  closeBtn.addEventListener('click', closeInsightsPanel);
+    if (overlay)   overlay.addEventListener('click', closeInsightsPanel);
+
+    // Subscribe to /analytics_summary — fires every time Firebase data changes
+    _insightsUnsubscribe = listenToAnalyticsSummary((summary) => {
+        updateInsightsUI(summary);
+    });
+}
+
+/**
+ * Renders the latest /analytics_summary snapshot into the Insights Panel DOM.
+ * Called on every real-time Firebase push.
+ *
+ * @param {Object} summary — raw snapshot.val() from /analytics_summary
+ */
+function updateInsightsUI(summary) {
+    // ── Total AI Queries ──────────────────────────────────────────────────────
+    const totalEl = document.getElementById('insight-total');
+    if (totalEl) totalEl.textContent = String(summary.session_count || 0);
+
+    // ── Active Users (last 10 minutes) ────────────────────────────────────────
+    const activeEl = document.getElementById('insight-active');
+    if (activeEl) {
+        const tenMinAgo   = Date.now() - 10 * 60 * 1000;
+        const activeUsers = Object.values(summary.active_users || {})
+            .filter(ts => typeof ts === 'number' && ts > tenMinAgo);
+        activeEl.textContent = String(activeUsers.length);
+
+        // Update live users badge in header
+        const countEl = document.getElementById('live-users-count');
+        if (countEl) countEl.textContent = String(activeUsers.length);
+    }
+
+    // ── Topic Breakdown bar chart ─────────────────────────────────────────────
+    const topicsEl = document.getElementById('insight-topics');
+    if (topicsEl && summary.topics) {
+        const topics = summary.topics;
+        const maxCount  = Math.max(1, ...Object.values(topics));
+        const topicMeta = {
+            zone:    { label: '🗺️ Zone',    color: 'var(--accent-primary)' },
+            food:    { label: '🍔 Food',    color: '#ffa502' },
+            weather: { label: '🌤️ Weather', color: 'var(--accent-secondary)' },
+            safety:  { label: '⚠️ Safety',  color: 'var(--danger)' },
+            route:   { label: '🧭 Route',   color: '#2ed573' },
+            general: { label: '💬 General', color: '#a0a5b5' }
+        };
+
+        // Sort topics by count descending
+        const sorted = Object.entries(topics)
+            .filter(([, v]) => v > 0)
+            .sort(([, a], [, b]) => b - a);
+
+        if (sorted.length === 0) {
+            topicsEl.innerHTML = `<span style="color: var(--text-secondary); font-size: 0.85rem;">No data yet...</span>`;
+        } else {
+            topicsEl.innerHTML = sorted.map(([key, count]) => {
+                const meta = topicMeta[key] || { label: key, color: '#a0a5b5' };
+                const pct  = Math.round((count / maxCount) * 100);
+                return `
+                    <div class="topic-bar-row">
+                        <span class="topic-bar-label">${meta.label}</span>
+                        <div class="topic-bar-track">
+                            <div class="topic-bar-fill" style="width: ${pct}%; background: ${meta.color};"></div>
+                        </div>
+                        <span class="topic-bar-count">${count}</span>
+                    </div>`;
+            }).join('');
+        }
     }
 }

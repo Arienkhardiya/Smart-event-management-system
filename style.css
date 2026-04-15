@@ -1083,3 +1083,563 @@ button {
         transform: scale(1);
     }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   UTILITY
+───────────────────────────────────────────────────────────────────────────── */
+.hidden {
+    display: none !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   HEADER — auth widget + live badge
+───────────────────────────────────────────────────────────────────────────── */
+
+/* Make the subtitle row flex so subtitle + badge sit side by side */
+.header-sub-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Live users badge (green pulsing) */
+.live-users-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.7rem;
+    color: #2ed573;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    background: rgba(46, 213, 115, 0.1);
+    padding: 2px 8px;
+    border-radius: 20px;
+    border: 1px solid rgba(46, 213, 115, 0.3);
+}
+
+.live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #2ed573;
+    animation: livePulse 1.6s ease-in-out infinite;
+    flex-shrink: 0;
+}
+
+@keyframes livePulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.5; transform: scale(0.8); }
+}
+
+/* Auth widget container */
+.auth-widget {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+/* ── Google Sign-In Button ── */
+.signin-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    transition: background 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+}
+
+.signin-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+.signin-btn:active {
+    transform: scale(0.97);
+}
+
+.google-icon {
+    flex-shrink: 0;
+    border-radius: 2px;
+}
+
+/* ── User Chip (logged-in state) ── */
+.user-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px 5px 5px;
+    border-radius: 22px;
+    background: rgba(108, 92, 231, 0.15);
+    border: 1px solid rgba(108, 92, 231, 0.35);
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    transition: background 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+    cursor: pointer;
+    white-space: nowrap;
+    max-width: 160px;
+}
+
+.user-chip:hover {
+    background: rgba(108, 92, 231, 0.28);
+    box-shadow: 0 0 14px rgba(108, 92, 231, 0.3);
+    transform: translateY(-1px);
+}
+
+.user-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1.5px solid rgba(108, 92, 231, 0.6);
+    flex-shrink: 0;
+}
+
+.user-display-name {
+    max-width: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   INSIGHTS PANEL — slide-in drawer from right
+───────────────────────────────────────────────────────────────────────────── */
+
+/* Dim overlay behind the panel */
+.insights-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 200;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    animation: fadeOverlay 0.25s ease forwards;
+}
+
+@keyframes fadeOverlay {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* Panel itself */
+.insights-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: min(340px, 90vw);
+    background: linear-gradient(160deg, #1a1d29 0%, #0f111a 100%);
+    border-left: 1px solid var(--glass-border);
+    box-shadow: -8px 0 40px rgba(0, 0, 0, 0.6);
+    z-index: 201;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(110%);
+    transition: transform 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    overflow: hidden;
+}
+
+.insights-panel.open {
+    transform: translateX(0);
+}
+
+/* Panel header bar */
+.insights-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--glass-border);
+    background: rgba(108, 92, 231, 0.08);
+    flex-shrink: 0;
+}
+
+.insights-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.insights-close-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    transition: background 0.2s, color 0.2s;
+}
+
+.insights-close-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: var(--text-primary);
+}
+
+/* Scrollable body */
+.insights-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.12) transparent;
+}
+
+/* Individual stat card */
+.insight-stat-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border-radius: var(--border-radius);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border);
+    transition: background 0.3s ease;
+}
+
+.insight-stat-card:hover {
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.insight-stat-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.insight-stat-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+}
+
+.insight-stat-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.insight-stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+/* ── Topic Breakdown ── */
+.insight-topics-card {
+    padding: 14px 16px;
+    border-radius: var(--border-radius);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border);
+}
+
+.insight-topics-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 14px;
+}
+
+.insight-topics-body {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.topic-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.topic-bar-label {
+    width: 80px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.topic-bar-track {
+    flex: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.topic-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    min-width: 4px;
+}
+
+.topic-bar-count {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    width: 24px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+/* ── User Info Card (at the bottom of panel) ── */
+.insight-user-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: var(--border-radius);
+    background: rgba(108, 92, 231, 0.08);
+    border: 1px solid rgba(108, 92, 231, 0.2);
+    margin-top: auto;
+    flex-shrink: 0;
+}
+
+.insight-user-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(108, 92, 231, 0.5);
+    flex-shrink: 0;
+}
+
+.insight-user-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.insight-user-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.insight-user-email {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Sign-out pill inside panel */
+.signout-pill-btn {
+    padding: 6px 12px;
+    border-radius: 16px;
+    background: rgba(255, 118, 117, 0.12);
+    border: 1px solid rgba(255, 118, 117, 0.3);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--danger);
+    white-space: nowrap;
+    transition: background 0.2s, transform 0.2s;
+    flex-shrink: 0;
+}
+
+.signout-pill-btn:hover {
+    background: rgba(255, 118, 117, 0.22);
+    transform: translateY(-1px);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ACCESSIBILITY — WCAG 2.1 AA
+───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Skip Navigation Link (WCAG 2.4.1 — Bypass Blocks) ───────────────────── */
+.skip-link {
+    position: absolute;
+    top: -100%;
+    left: 0;
+    z-index: 9999;
+    padding: 10px 20px;
+    background: var(--accent-primary);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    border-radius: 0 0 8px 0;
+    text-decoration: none;
+    transition: top 0.2s ease;
+    /* Visible only when focused */
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+    top: 0;
+    outline: 3px solid #fff;
+    outline-offset: 2px;
+}
+
+/* ── Screen-Reader-Only Utility (WCAG 1.1.1 / 1.3.1) ───────────────────── */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ── Focus Indicators (WCAG 2.4.7 — Focus Visible) ──────────────────────── */
+/*
+ * We use :focus-visible so mouse users don't see the ring,
+ * but keyboard/switch users always do.
+ * All interactive elements get a consistent 3px purple ring.
+ */
+:focus-visible {
+    outline: 3px solid var(--accent-primary);
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
+/* Override browser default which can be invisible on dark backgrounds */
+:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* Tighter radius for pill-shaped buttons */
+.signin-btn:focus-visible,
+.user-chip:focus-visible,
+.signout-pill-btn:focus-visible,
+.filter-pill:focus-visible,
+.zone-pill:focus-visible {
+    border-radius: 22px;
+}
+
+/* Circular buttons get circular focus ring */
+.insights-close-btn:focus-visible,
+.add-btn:focus-visible,
+.send-btn:focus-visible,
+.btn-icon:focus-visible {
+    border-radius: 50%;
+}
+
+/* Nav items get their natural border-radius */
+.nav-item:focus-visible {
+    outline-offset: 0;
+    border-radius: var(--border-radius);
+}
+
+/* ── High-Contrast Filter Pills (WCAG 1.4.1 — Use of Color) ─────────────── */
+/* Active filter uses both color AND a visible underline so it's not color-only */
+.filter-pill.active {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+/* ── High-Contrast Zone Status Text (WCAG 1.4.3 — Contrast Minimum) ─────── */
+/* Boost zone-density text weight so Low/Medium/High is readable at small size */
+.zone-density {
+    font-weight: 600 !important;
+    letter-spacing: 0.3px;
+}
+
+/* ── Emergency Danger Button — ensure contrast on hover (WCAG 1.4.11) ────── */
+.btn-danger.btn-large {
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+/* ── aria-current page indicator — visual-only reinforcement ─────────────── */
+.nav-item[aria-current="page"] {
+    position: relative;
+}
+
+.nav-item[aria-current="page"]::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 20px;
+    height: 3px;
+    background: var(--accent-primary);
+    border-radius: 2px;
+}
+
+/* ── Prefers Reduced Motion (WCAG 2.3.3 — Animation from Interactions) ────── */
+/*
+ * Disables all animations and transitions for users who have
+ * "Reduce Motion" enabled in their OS accessibility settings.
+ * This is essential for users with vestibular disorders.
+ */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    /* Explicitly stop pulsing elements */
+    .live-dot,
+    .bz-live-badge,
+    .density-high,
+    .typing-dot {
+        animation: none !important;
+    }
+
+    /* Freeze the slide-in panel — show instantly */
+    .insights-panel {
+        transition: none !important;
+        transform: translateX(0) !important;
+    }
+
+    .insights-panel.hidden {
+        transform: translateX(110%) !important;
+    }
+
+    /* Freeze animated card entries */
+    .animated-entry,
+    .animated-entry.delay-1,
+    .animated-entry.delay-2 {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
+}

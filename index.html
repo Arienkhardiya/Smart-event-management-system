@@ -15,41 +15,145 @@
     <link rel="icon" href="data:,">
 </head>
 <body>
+    <!-- Skip Navigation Link (WCAG 2.4.1) -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <div class="app-container">
+        <!-- ─── Insights Panel Drawer (shown to signed-in users) ─── -->
+        <div id="insights-overlay" class="insights-overlay hidden" aria-hidden="true"></div>
+        <!-- role=dialog + aria-modal make screen readers treat this as a modal (WCAG 4.1.2) -->
+        <aside id="insights-panel" class="insights-panel hidden"
+               role="dialog"
+               aria-modal="true"
+               aria-labelledby="insights-panel-title">
+            <div class="insights-header">
+                <div class="insights-title" id="insights-panel-title">
+                    <i class="fas fa-chart-line" style="color: var(--accent-primary);" aria-hidden="true"></i>
+                    <span>Live Insights</span>
+                    <span class="bz-live-badge" style="margin-left: 8px;" aria-label="Live data">
+                        <span aria-hidden="true">● LIVE</span>
+                    </span>
+                </div>
+                <button id="insights-close-btn" class="insights-close-btn" type="button" aria-label="Close Insights panel">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="insights-body">
+                <!-- Stat Cards: aria-live so screen readers announce updates (WCAG 4.1.3) -->
+                <div class="insight-stat-card" role="group" aria-label="Total AI Queries stat">
+                    <div class="insight-stat-icon" style="background: rgba(108,92,231,0.2); color: var(--accent-primary);" aria-hidden="true">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <div class="insight-stat-info">
+                        <span class="insight-stat-label" id="label-total">Total AI Queries</span>
+                        <span id="insight-total" class="insight-stat-value" role="status" aria-labelledby="label-total" aria-live="polite">—</span>
+                    </div>
+                </div>
+                <div class="insight-stat-card" role="group" aria-label="Active users stat">
+                    <div class="insight-stat-icon" style="background: rgba(0,206,201,0.2); color: var(--accent-secondary);" aria-hidden="true">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="insight-stat-info">
+                        <span class="insight-stat-label" id="label-active">Active Users (last 10 min)</span>
+                        <span id="insight-active" class="insight-stat-value" role="status" aria-labelledby="label-active" aria-live="polite">—</span>
+                    </div>
+                </div>
+                <div class="insight-stat-card" role="group" aria-label="My session queries stat">
+                    <div class="insight-stat-icon" style="background: rgba(46,213,115,0.2); color: #2ed573;" aria-hidden="true">
+                        <i class="fas fa-user-check"></i>
+                    </div>
+                    <div class="insight-stat-info">
+                        <span class="insight-stat-label" id="label-mine">My Queries This Session</span>
+                        <span id="insight-mine" class="insight-stat-value" role="status" aria-labelledby="label-mine" aria-live="polite">0</span>
+                    </div>
+                </div>
+                <!-- Topic Breakdown -->
+                <div class="insight-topics-card">
+                    <div class="insight-topics-header" id="topics-heading">
+                        <i class="fas fa-tags" style="color: var(--accent-primary);" aria-hidden="true"></i>
+                        <span>Topic Breakdown</span>
+                    </div>
+                    <div id="insight-topics" class="insight-topics-body" role="list" aria-labelledby="topics-heading" aria-live="polite">
+                        <span style="color: var(--text-secondary); font-size: 0.85rem;">No data yet...</span>
+                    </div>
+                </div>
+                <!-- User Info -->
+                <div class="insight-user-card" id="insight-user-card" role="group" aria-label="Signed-in user">
+                    <img id="insight-avatar" class="insight-user-avatar" src="" alt="Your profile picture">
+                    <div class="insight-user-info">
+                        <span id="insight-user-name" class="insight-user-name" aria-label="Name"></span>
+                        <span id="insight-user-email" class="insight-user-email" aria-label="Email"></span>
+                    </div>
+                    <button id="signout-btn" class="signout-pill-btn" type="button" aria-label="Sign out of your account">
+                        <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+                        <span>Sign Out</span>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
         <!-- Main Header -->
-        <header class="app-header glass">
+        <header class="app-header glass" role="banner">
             <div class="header-info">
                 <h1 class="event-title">Championship Finals 2026</h1>
-                <p class="event-subtitle">AI-Powered Smart Event Assistant</p>
+                <div class="header-sub-row">
+                    <p class="event-subtitle">AI-Powered Smart Event Assistant</p>
+                    <!-- aria-live so screen readers announce user count changes -->
+                    <span id="live-users-badge" class="live-users-badge hidden" aria-live="polite" aria-atomic="true">
+                        <span class="live-dot" aria-hidden="true"></span>
+                        <span class="sr-only">Active users right now:</span>
+                        <span id="live-users-count">0</span>
+                        <span class="sr-only">users live</span>
+                    </span>
+                </div>
             </div>
-            <button class="profile-btn" aria-label="User Profile">
-                <i class="fas fa-user-circle"></i>
-            </button>
+            <!-- Auth Widget: shows sign-in button OR user chip based on auth state -->
+            <div id="auth-widget" class="auth-widget" role="region" aria-label="User account">
+                <!-- Logged-out state -->
+                <button id="signin-btn" class="signin-btn" type="button" aria-label="Sign in with Google">
+                    <svg class="google-icon" viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    </svg>
+                    <span>Sign in</span>
+                </button>
+                <!-- Logged-in: aria-expanded=true when insights panel is open -->
+                <button id="user-chip-btn" class="user-chip hidden" type="button"
+                        aria-label="Open Live Insights panel"
+                        aria-expanded="false"
+                        aria-controls="insights-panel">
+                    <img id="user-avatar" class="user-avatar" src="" alt="Your profile picture">
+                    <span id="user-display-name" class="user-display-name"></span>
+                    <i class="fas fa-chart-line" style="font-size: 0.75rem; opacity: 0.7;" aria-hidden="true"></i>
+                </button>
+            </div>
         </header>
 
         <!-- Main Content Area -->
-        <main class="app-content">
+        <main class="app-content" id="main-content" role="main">
             
             <!-- Home Section -->
-            <section id="section-home" class="view-section active">
+            <section id="section-home" class="view-section active" role="region" aria-labelledby="home-heading">
                 <div class="hero-card glass animated-entry">
-                    <h2>Welcome to the Arena</h2>
+                    <h2 id="home-heading">Welcome to the Arena</h2>
                     <p>Your ultimate guide for today's event. Explore the stadium, order food, and stay connected.</p>
                 </div>
 
-                <div class="quick-status glass animated-entry delay-1">
+                <div class="quick-status glass animated-entry delay-1" role="region" aria-label="Event status overview">
                     <div class="status-item">
-                        <i class="fas fa-clock"></i>
+                        <i class="fas fa-clock" aria-hidden="true"></i>
                         <div>
                             <span class="status-label">Next Event</span>
                             <span class="status-val">Kickoff in 45m</span>
                         </div>
                     </div>
                     <div class="status-item">
-                        <i id="weather-icon" class="fas fa-temperature-half"></i>
+                        <i id="weather-icon" class="fas fa-temperature-half" aria-hidden="true"></i>
                         <div>
                             <span class="status-label">Weather</span>
-                            <span class="status-val" id="weather-val">72°F / Clear</span>
+                            <!-- aria-live so screen readers announce when weather loads -->
+                            <span class="status-val" id="weather-val" role="status" aria-live="polite">Loading...</span>
                         </div>
                     </div>
                 </div>
@@ -70,70 +174,75 @@
             </section>
 
             <!-- Map Section -->
-            <section id="section-map" class="view-section">
-                <h2 class="view-title">Stadium Map</h2>
+            <section id="section-map" class="view-section" role="region" aria-labelledby="map-heading">
+                <h2 class="view-title" id="map-heading">Stadium Map</h2>
                 <div class="map-container glass">
-                    <img src="./assets/stadium_map.jpg" alt="Stadium Layout Map" class="feature-image" id="map-image">
+                    <img src="./assets/stadium_map.jpg" alt="Stadium layout map showing zones A through D, VIP Lounge, and Food Court" class="feature-image" id="map-image">
                     
-                    <div class="map-controls">
-                        <button class="glass-btn active">All</button>
-                        <button class="glass-btn">Gates</button>
-                        <button class="glass-btn">Restrooms</button>
-                        <button class="glass-btn">Merch</button>
+                    <div class="map-controls" role="group" aria-label="Map filter controls">
+                        <button class="glass-btn active" type="button" aria-pressed="true">All</button>
+                        <button class="glass-btn" type="button" aria-pressed="false">Gates</button>
+                        <button class="glass-btn" type="button" aria-pressed="false">Restrooms</button>
+                        <button class="glass-btn" type="button" aria-pressed="false">Merch</button>
                     </div>
                 </div>
 
-                <div class="heatmap-container glass animated-entry delay-1">
+                <div class="heatmap-container glass animated-entry delay-1" role="region" aria-labelledby="heatmap-heading">
                     <div class="heatmap-header">
-                        <h3>Crowd Heatmap</h3>
-                        <button id="refresh-heatmap" class="refresh-btn"><i class="fas fa-sync-alt"></i> Refresh</button>
+                        <h3 id="heatmap-heading">Crowd Heatmap</h3>
+                        <button id="refresh-heatmap" class="refresh-btn" type="button" aria-label="Refresh crowd heatmap data">
+                            <i class="fas fa-sync-alt" aria-hidden="true"></i>
+                            <span>Refresh</span>
+                        </button>
                     </div>
-                    <div class="heatmap-grid" id="heatmap-grid">
-                        <div class="zone-card density-medium" id="zone-a" data-zone="zoneA">
+                    <!-- role=list communicates grid is a list of zones to screen readers -->
+                    <div class="heatmap-grid" id="heatmap-grid" role="list" aria-label="Zone crowd density levels" aria-live="polite" aria-atomic="false">
+                        <div class="zone-card density-medium" id="zone-a" data-zone="zoneA" role="listitem" aria-label="Zone A (North): Medium crowd density">
                             <div class="zone-label">Zone A (North)</div>
-                            <div class="zone-density"><i class="fas fa-user-friends"></i> Medium</div>
+                            <div class="zone-density"><i class="fas fa-user-friends" aria-hidden="true"></i> Medium</div>
                         </div>
-                        <div class="zone-card density-low" id="zone-b" data-zone="zoneB">
+                        <div class="zone-card density-low" id="zone-b" data-zone="zoneB" role="listitem" aria-label="Zone B (East): Low crowd density">
                             <div class="zone-label">Zone B (East)</div>
-                            <div class="zone-density"><i class="fas fa-user"></i> Low</div>
+                            <div class="zone-density"><i class="fas fa-user" aria-hidden="true"></i> Low</div>
                         </div>
-                        <div class="zone-card density-high" id="zone-c" data-zone="zoneC">
+                        <div class="zone-card density-high" id="zone-c" data-zone="zoneC" role="listitem" aria-label="Zone C (South): High crowd density">
                             <div class="zone-label">Zone C (South)</div>
-                            <div class="zone-density"><i class="fas fa-users"></i> High</div>
+                            <div class="zone-density"><i class="fas fa-users" aria-hidden="true"></i> High</div>
                         </div>
-                        <div class="zone-card density-low" id="zone-d" data-zone="zoneD">
+                        <div class="zone-card density-low" id="zone-d" data-zone="zoneD" role="listitem" aria-label="Zone D (West): Low crowd density">
                             <div class="zone-label">Zone D (West)</div>
-                            <div class="zone-density"><i class="fas fa-user"></i> Low</div>
+                            <div class="zone-density"><i class="fas fa-user" aria-hidden="true"></i> Low</div>
                         </div>
-                        <div class="zone-card density-low" id="zone-vip" data-zone="vip">
+                        <div class="zone-card density-low" id="zone-vip" data-zone="vip" role="listitem" aria-label="VIP Lounge: Low crowd density">
                             <div class="zone-label">VIP Lounge</div>
-                            <div class="zone-density"><i class="fas fa-user"></i> Low</div>
+                            <div class="zone-density"><i class="fas fa-user" aria-hidden="true"></i> Low</div>
                         </div>
-                        <div class="zone-card density-medium" id="zone-food" data-zone="food">
+                        <div class="zone-card density-medium" id="zone-food" data-zone="food" role="listitem" aria-label="Food Court: Medium crowd density">
                             <div class="zone-label">Food Court</div>
-                            <div class="zone-density"><i class="fas fa-user-friends"></i> Medium</div>
+                            <div class="zone-density"><i class="fas fa-user-friends" aria-hidden="true"></i> Medium</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- AI Best Zone Recommendation Widget -->
-                <div class="best-zone-card glass animated-entry delay-2">
+                <div class="best-zone-card glass animated-entry delay-2" role="region" aria-labelledby="bz-heading">
                     <div class="bz-header">
-                        <i class="fas fa-brain" style="color: var(--accent-primary); margin-right: 8px;"></i>
-                        <strong>AI Zone Recommendation</strong>
-                        <span class="bz-live-badge">● LIVE</span>
+                        <i class="fas fa-brain" style="color: var(--accent-primary); margin-right: 8px;" aria-hidden="true"></i>
+                        <strong id="bz-heading">AI Zone Recommendation</strong>
+                        <span class="bz-live-badge" aria-label="Live data"><span aria-hidden="true">● LIVE</span></span>
                     </div>
-                    <div id="best-zone-widget" class="bz-body">
+                    <!-- aria-live announces zone updates to screen readers without requiring focus -->
+                    <div id="best-zone-widget" class="bz-body" role="status" aria-live="polite" aria-atomic="true">
                         <span style="opacity:0.5">Waiting for live data...</span>
                     </div>
                 </div>
 
-                <div class="smart-nav-container glass animated-entry delay-2">
-                    <h3 class="nav-title">Smart Navigation</h3>
+                <div class="smart-nav-container glass animated-entry delay-2" role="region" aria-labelledby="smart-nav-heading">
+                    <h3 class="nav-title" id="smart-nav-heading">Smart Navigation</h3>
                     <div class="nav-form">
                         <div class="input-group">
                             <label for="nav-from">From Location</label>
-                            <select id="nav-from" class="glass-select">
+                            <select id="nav-from" class="glass-select" aria-describedby="nav-hint">
                                 <option value="Gate A">Gate A</option>
                                 <option value="Gate B">Gate B</option>
                                 <option value="Zone 1">Zone 1</option>
@@ -149,121 +258,156 @@
                             </select>
                         </div>
                     </div>
-                    <button id="find-route-btn" class="action-btn">Find Best Route</button>
+                    <p id="nav-hint" class="sr-only">Select your starting and ending location, then press Find Best Route to get a crowd-aware path</p>
+                    <button id="find-route-btn" class="action-btn" type="button" aria-describedby="route-result">Find Best Route</button>
                     
-                    <div id="route-result" class="route-result-box glass hidden">
+                    <!-- aria-live announces route result to screen readers -->
+                    <div id="route-result" class="route-result-box glass hidden" role="status" aria-live="polite" aria-atomic="true">
                         <!-- Result injected by JS -->
                     </div>
                 </div>
             </section>
 
             <!-- Assistant Section -->
-            <section id="section-assistant" class="view-section">
-                <h2 class="view-title">AI Assistant</h2>
+            <section id="section-assistant" class="view-section" role="region" aria-labelledby="assistant-heading">
+                <h2 class="view-title" id="assistant-heading">AI Assistant</h2>
                 <div class="chat-container glass">
-                    <div class="chat-history" id="chat-history">
+                    <!-- role=log + aria-live=polite: screen readers announce new messages without interrupting -->
+                    <div class="chat-history" id="chat-history"
+                         role="log"
+                         aria-label="Chat conversation"
+                         aria-live="polite"
+                         aria-relevant="additions"
+                         aria-atomic="false">
                         <div class="chat-message bot">
-                            <div class="message-bubble glass">
+                            <div class="message-bubble glass" role="article" aria-label="Assistant: Hello! I'm your Smart Event Assistant. How can I help you today?">
                                 Hello! I'm your Smart Event Assistant. How can I help you today?
                             </div>
                         </div>
                     </div>
-                    <div class="chat-input-area">
-                        <input type="text" id="chat-input" placeholder="Ask me anything..." aria-label="Type your message">
-                        <button class="send-btn" id="send-btn" aria-label="Send Message"><i class="fas fa-paper-plane"></i></button>
+                    <div class="chat-input-area" role="group" aria-label="Send a message">
+                        <label for="chat-input" class="sr-only">Type your question for the AI assistant</label>
+                        <input type="text" id="chat-input"
+                               placeholder="Ask me anything..."
+                               aria-label="Type your message"
+                               autocomplete="off"
+                               autocorrect="off"
+                               spellcheck="false">
+                        <button class="send-btn" id="send-btn" type="button" aria-label="Send message">
+                            <i class="fas fa-paper-plane" aria-hidden="true"></i>
+                        </button>
                     </div>
                 </div>
             </section>
 
             <!-- Food Section -->
-            <section id="section-food" class="view-section">
-                <h2 class="view-title">Concessions</h2>
+            <section id="section-food" class="view-section" role="region" aria-labelledby="food-heading">
+                <h2 class="view-title" id="food-heading">Concessions</h2>
                 
-                <div class="food-category-filters">
-                    <div class="filter-pill active">Popular</div>
-                    <div class="filter-pill">Meals</div>
-                    <div class="filter-pill">Snacks</div>
-                    <div class="filter-pill">Drinks</div>
+                <!-- role=tablist pattern for the filter pills -->
+                <div class="food-category-filters" role="group" aria-label="Filter food by category">
+                    <button class="filter-pill active" type="button" role="radio" aria-checked="true">Popular</button>
+                    <button class="filter-pill" type="button" role="radio" aria-checked="false">Meals</button>
+                    <button class="filter-pill" type="button" role="radio" aria-checked="false">Snacks</button>
+                    <button class="filter-pill" type="button" role="radio" aria-checked="false">Drinks</button>
                 </div>
 
-                <div class="food-grid">
-                    <div class="food-card glass">
-                        <img src="./assets/stadium_food.jpg" alt="Classic Cheeseburger" class="food-img" id="food-image">
+                <ul class="food-grid" role="list" aria-label="Food items">
+                    <li class="food-card glass" role="listitem">
+                        <img src="./assets/stadium_food.jpg" alt="Classic Burger: beef patty with cheese, lettuce and house sauce" class="food-img" id="food-image">
                         <div class="food-info">
-                            <h4>Classic Burger</h4>
+                            <h3 id="food-1-name">Classic Burger</h3>
                             <p class="food-desc">Beef patty, cheese, lettuce, house sauce</p>
                             <div class="food-action">
-                                <span class="price">$12.00</span>
-                                <button class="add-btn"><i class="fas fa-plus"></i></button>
+                                <span class="price" aria-label="Price: 12 dollars">$12.00</span>
+                                <button class="add-btn" type="button" aria-label="Add Classic Burger to order">
+                                    <i class="fas fa-plus" aria-hidden="true"></i>
+                                </button>
                             </div>
                         </div>
-                    </div>
-                    <div class="food-card glass">
-                        <div class="food-placeholder"><i class="fas fa-pizza-slice"></i></div>
+                    </li>
+                    <li class="food-card glass" role="listitem">
+                        <div class="food-placeholder" aria-hidden="true"><i class="fas fa-pizza-slice"></i></div>
                         <div class="food-info">
-                            <h4>Pepperoni Slice</h4>
+                            <h3 id="food-2-name">Pepperoni Slice</h3>
                             <p class="food-desc">Large slice, extra cheese, crispy crust</p>
                             <div class="food-action">
-                                <span class="price">$8.50</span>
-                                <button class="add-btn"><i class="fas fa-plus"></i></button>
+                                <span class="price" aria-label="Price: 8 dollars 50 cents">$8.50</span>
+                                <button class="add-btn" type="button" aria-label="Add Pepperoni Slice to order">
+                                    <i class="fas fa-plus" aria-hidden="true"></i>
+                                </button>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </li>
+                </ul>
             </section>
 
             <!-- Emergency Section -->
-            <section id="section-emergency" class="view-section">
-                <h2 class="view-title text-danger">Emergency & Safety</h2>
+            <section id="section-emergency" class="view-section" role="region" aria-labelledby="emergency-heading">
+                <h2 class="view-title text-danger" id="emergency-heading">Emergency &amp; Safety</h2>
                 
-                <div class="emergency-card glass border-danger">
-                    <i class="fas fa-exclamation-triangle text-danger icon-large"></i>
+                <div class="emergency-card glass border-danger" role="group" aria-label="Quick SOS alert">
+                    <i class="fas fa-exclamation-triangle text-danger icon-large" aria-hidden="true"></i>
                     <h3>Quick SOS</h3>
-                    <p>Alert stadium security to your immediate location.</p>
-                    <button class="btn-danger btn-large">Press to Alert Security</button>
+                    <p id="sos-desc">Alert stadium security to your immediate location.</p>
+                    <button class="btn-danger btn-large" type="button"
+                            aria-label="Press to alert stadium security to your location"
+                            aria-describedby="sos-desc">
+                        Press to Alert Security
+                    </button>
                 </div>
                 
-                <div class="contacts-list">
-                    <div class="contact-item glass">
-                        <div class="contact-icon"><i class="fas fa-first-aid"></i></div>
+                <ul class="contacts-list" role="list" aria-label="Emergency contacts">
+                    <li class="contact-item glass" role="listitem">
+                        <div class="contact-icon" aria-hidden="true"><i class="fas fa-first-aid"></i></div>
                         <div class="contact-text">
-                            <h4>Medical Assistance</h4>
+                            <h3>Medical Assistance</h3>
                             <p>Call First Responders</p>
                         </div>
-                        <button class="btn-icon"><i class="fas fa-phone"></i></button>
-                    </div>
-                    <div class="contact-item glass">
-                        <div class="contact-icon"><i class="fas fa-shield-alt"></i></div>
+                        <button class="btn-icon" type="button" aria-label="Call Medical Assistance — First Responders">
+                            <i class="fas fa-phone" aria-hidden="true"></i>
+                        </button>
+                    </li>
+                    <li class="contact-item glass" role="listitem">
+                        <div class="contact-icon" aria-hidden="true"><i class="fas fa-shield-alt"></i></div>
                         <div class="contact-text">
-                            <h4>Lost & Found</h4>
+                            <h3>Lost &amp; Found</h3>
                             <p>Report or find items</p>
                         </div>
-                        <button class="btn-icon"><i class="fas fa-arrow-right"></i></button>
-                    </div>
-                </div>
+                        <button class="btn-icon" type="button" aria-label="Go to Lost and Found — report or find items">
+                            <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                        </button>
+                    </li>
+                </ul>
             </section>
         </main>
 
         <!-- Bottom Navigation -->
-        <nav class="bottom-nav glass">
-            <button class="nav-item active" data-target="section-home">
-                <i class="fas fa-home"></i>
+        <!-- role=navigation + aria-label trumps the implicit <nav> role for specificity -->
+        <nav class="bottom-nav glass" aria-label="Main navigation">
+            <button class="nav-item active" type="button" data-target="section-home"
+                    aria-current="page" aria-label="Home">
+                <i class="fas fa-home" aria-hidden="true"></i>
                 <span>Home</span>
             </button>
-            <button class="nav-item" data-target="section-map">
-                <i class="emoji-icon" style="font-style: normal;">🗺️</i>
+            <button class="nav-item" type="button" data-target="section-map"
+                    aria-current="false" aria-label="Stadium Map">
+                <i class="emoji-icon" style="font-style: normal;" aria-hidden="true">🗺️</i>
                 <span>Map</span>
             </button>
-            <button class="nav-item" data-target="section-assistant">
-                <i class="fas fa-robot"></i>
+            <button class="nav-item" type="button" data-target="section-assistant"
+                    aria-current="false" aria-label="AI Assistant">
+                <i class="fas fa-robot" aria-hidden="true"></i>
                 <span>Assistant</span>
             </button>
-            <button class="nav-item" data-target="section-food">
-                <i class="emoji-icon" style="font-style: normal;">🍔</i>
+            <button class="nav-item" type="button" data-target="section-food"
+                    aria-current="false" aria-label="Concessions and Food">
+                <i class="emoji-icon" style="font-style: normal;" aria-hidden="true">🍔</i>
                 <span>Food</span>
             </button>
-            <button class="nav-item" data-target="section-emergency">
-                <i class="emoji-icon" style="font-style: normal;">⚠️</i>
+            <button class="nav-item" type="button" data-target="section-emergency"
+                    aria-current="false" aria-label="Emergency and Safety">
+                <i class="emoji-icon" style="font-style: normal;" aria-hidden="true">⚠️</i>
                 <span>Safety</span>
             </button>
         </nav>

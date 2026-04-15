@@ -2,15 +2,17 @@
   "name": "smart-event-assistant",
   "version": "1.0.0",
   "description": "Smart Event Assistant Fullstack Version",
-  "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "dev":   "vercel dev",
+    "start": "vercel dev"
   },
   "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
+    "cors":    "^2.8.5",
+    "dotenv":  "^16.4.5",
     "express": "^4.19.2",
     "firebase": "^12.12.0"
+  },
+  "devDependencies": {
+    "vercel": "^39.0.0"
   }
 }
