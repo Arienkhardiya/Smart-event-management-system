@@ -177,14 +177,14 @@ async function safeInit(name, fn) {
         } else {
             fn();
         }
-        console.log(`[Boot] ${name} ... OK`);
+        
     } catch (err) {
         console.warn(`[Boot] ${name} ... FAILED:`, err.message);
     }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log("🚀 System Booting...");
+    
     
     // Core setup first
     await safeInit('Auth', () => initAuth(app));
@@ -220,7 +220,7 @@ window.addEventListener('unhandledrejection', event => {
 function showGlobalError(msg) {
     const errorBar = document.createElement('div');
     errorBar.className = 'glass animated-entry';
-    errorBar.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--danger); padding:10px 20px; border-radius:10px; z-index:9999; font-size:0.8rem;';
+    errorBar.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--danger); padding:10px 20px; border-radius:10px; z-index:9999; font-size:0.8rem; border:1px solid rgba(255,255,255,0.1); box-shadow: 0 8px 32px rgba(0,0,0,0.4);';
     errorBar.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> ${msg}`;
     document.body.appendChild(errorBar);
     setTimeout(() => errorBar.remove(), 5000);
@@ -1339,6 +1339,11 @@ function initImpactMetrics() {
     let currentMode = 'cumulative'; // 'cumulative' | 'hourly'
     let lastData = null;
 
+    // Set professional defaults immediately for hydration
+    timeEl.textContent = '0m';
+    redirectEl.textContent = '0';
+    avoidedEl.textContent = 'None';
+
     const renderMetrics = (data) => {
         if (!data) return;
         lastData = data;
@@ -1347,13 +1352,13 @@ function initImpactMetrics() {
         const events = data.events ? Object.values(data.events) : [];
 
         if (currentMode === 'cumulative') {
-            timeEl.textContent = `${cumulative.time_saved}m`;
-            redirectEl.textContent = cumulative.redirects;
+            timeEl.textContent = `${cumulative.time_saved || 0}m`;
+            redirectEl.textContent = cumulative.redirects || 0;
             
             // Find most avoided zone
             const avoided = cumulative.avoided_counts || {};
             const topZone = Object.entries(avoided).sort((a,b) => b[1] - a[1])[0];
-            avoidedEl.textContent = topZone ? (ZONE_LABELS[topZone[0]] || topZone[0]) : 'N/A';
+            avoidedEl.textContent = topZone ? (ZONE_LABELS[topZone[0]] || topZone[0]) : 'None';
         } else {
             // Sliding 60-minute window calculation
             const now = Date.now();
@@ -1370,7 +1375,7 @@ function initImpactMetrics() {
             const recentAvoided = {};
             recent.forEach(e => { if(e.z) recentAvoided[e.z] = (recentAvoided[e.z] || 0) + 1; });
             const topRecent = Object.entries(recentAvoided).sort((a,b) => b[1] - a[1])[0];
-            avoidedEl.textContent = topRecent ? (ZONE_LABELS[topRecent[0]] || topRecent[0]) : 'N/A';
+            avoidedEl.textContent = topRecent ? (ZONE_LABELS[topRecent[0]] || topRecent[0]) : 'None';
         }
 
         // Production UI Transition: Remove shimmers and update aria-busy

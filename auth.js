@@ -88,14 +88,18 @@ export async function signOutUser() {
 
     const user = _auth.currentUser;
     if (user && _db) {
-        // Remove active-user marker so live count is accurate
+        // Remove active-user marker - fail silently if permissions change
         await update(ref(_db, 'analytics_summary/active_users'), {
             [user.uid]: null
         }).catch(() => {});
     }
 
-    trackEvent('logout', {});
-    await firebaseSignOut(_auth);
+    try {
+        trackEvent('logout', {});
+        await firebaseSignOut(_auth);
+    } catch (e) {
+        // Sign out should rarely fail, but avoid crashing the UI
+    }
 }
 
 /**
@@ -193,10 +197,14 @@ export async function logInteraction(message, responseType = 'unknown') {
         [`analytics_summary/active_users/${user.uid}`]: serverTimestamp()
     };
 
-    await Promise.all([
-        push(ref(_db, `interactions/${user.uid}`), interactionRecord),
-        update(ref(_db), summaryUpdates)
-    ]).catch(err => console.warn('[Auth] logInteraction write failed:', err.message));
+    try {
+        await Promise.all([
+            push(ref(_db, `interactions/${user.uid}`), interactionRecord),
+            update(ref(_db), summaryUpdates)
+        ]);
+    } catch (err) {
+        // Silence background telemetry errors in production
+    }
 }
 
 // ─── Analytics Events ─────────────────────────────────────────────────────────
@@ -236,7 +244,13 @@ export function trackEvent(eventName, params = {}) {
 export function listenToAnalyticsSummary(callback) {
     if (!_db) return () => {};
     return onValue(ref(_db, 'analytics_summary'), snapshot => {
-        callback(snapshot.val() || {});
+        const data = snapshot.val() || {};
+        // Ensure standard structure to prevent UI errors
+        callback({
+            session_count: data.session_count || 0,
+            active_users:  data.active_users  || {},
+            topics:        data.topics        || {}
+        });
     });
 }
 
@@ -273,12 +287,8 @@ export async function logImpactMetric({ timeSaved = 0, redirect = false, avoidZo
             update(ref(_db), updates),
             push(ref(_db, 'impact_summary/events'), event)
         ]);
-        
-        // Optional: Prune old events (last 100 kept for "recent" window)
-        // In a real production app, this would be a Cloud Function. 
-        // Here we just keep the recent window clean for the client.
     } catch (err) {
-        console.warn('[Auth] logImpactMetric failed:', err.message);
+        // Silent fail for background metrics
     }
 }
 
