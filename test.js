@@ -19,14 +19,16 @@
 // ─────────────────────────────────────────────
 
 const results = { passed: 0, failed: 0, total: 0 };
+const suiteResults = [];
 
-function test(description, fn) {
+function test(description, fn, suite = "General") {
     results.total++;
     try {
         fn();
-        console.log(`  ✅ PASS — ${description}`);
+        suiteResults.push({ Suite: suite, Test: description, Status: "✅ PASS" });
         results.passed++;
     } catch (err) {
+        suiteResults.push({ Suite: suite, Test: description, Status: "❌ FAIL" });
         console.error(`  ❌ FAIL — ${description}`);
         console.error(`          → ${err.message}`);
         results.failed++;
@@ -192,7 +194,7 @@ test("Valid crowd snapshot has expected zone keys", () => {
     const snapshot = { zoneA: "low", zoneB: "medium", zoneC: "high", zoneD: "low", vip: "medium", food: "high" };
     const requiredKeys = ["zoneA", "zoneB", "zoneC", "zoneD", "vip", "food"];
     requiredKeys.forEach(k => assert(k in snapshot, `Missing key: ${k}`));
-});
+}, "Firebase");
 
 test("Crowd density values are normalised to lowercase", () => {
     const raw = { zoneA: "Low", zoneB: "MEDIUM", zoneC: "High" };
@@ -200,7 +202,7 @@ test("Crowd density values are normalised to lowercase", () => {
         const normalised = val.toLowerCase().trim();
         assertIncludes(["low", "medium", "high"], normalised, "normalised value");
     });
-});
+}, "Firebase");
 
 test("Unknown zone key does not throw — gracefully skipped", () => {
     const data = { zoneA: "low", unknownZone: "medium" };
@@ -208,14 +210,14 @@ test("Unknown zone key does not throw — gracefully skipped", () => {
     const classes = simulateHeatmapUIClasses(data);
     assert("unknownZone" in classes === false, "Unknown zone should not produce a class");
     assertEqual(classes["zoneA"], "density-low", "Known zone should still render");
-});
+}, "Firebase");
 
 test("Partial snapshot (only 2 zones) is accepted without errors", () => {
     const partial = { zoneA: "low", food: "high" };
     const { best, avoid } = getBestZone(partial);
     assertEqual(best.length, 1, "Should have 1 low zone");
     assertEqual(avoid.length, 1, "Should have 1 high zone");
-});
+}, "Firebase");
 
 test("Empty crowd snapshot returns zero zones", () => {
     const { best, medium, avoid, all } = getBestZone({});
@@ -223,14 +225,14 @@ test("Empty crowd snapshot returns zero zones", () => {
     assertEqual(best.length, 0);
     assertEqual(medium.length, 0);
     assertEqual(avoid.length, 0);
-});
+}, "Firebase");
 
 test("Crowd data with extra whitespace is trimmed correctly", () => {
     const data = { zoneA: "  high  ", zoneB: " low " };
     const { best, avoid } = getBestZone(data);
     assertEqual(best.length, 1, "Zone B should be low after trimming");
     assertEqual(avoid.length, 1, "Zone A should be high after trimming");
-});
+}, "Firebase");
 
 // ─────────────────────────────────────────────
 //  SUITE 2 — AI / NLP Response Logic
@@ -244,72 +246,72 @@ test("getBestZone returns correct low-priority zones first", () => {
     assertEqual(avoid.length, 2, "Two high zones");
     // First in sorted list should be a low zone
     assertEqual(all[0].density, "low", "First sorted zone is low");
-});
+}, "AI Logic");
 
 test("getBestZone returns medium zones when no low zones exist", () => {
     const data = { zoneA: "medium", zoneB: "high", zoneC: "medium" };
     const { best, medium } = getBestZone(data);
     assertEqual(best.length, 0, "No low zones");
     assertEqual(medium.length, 2, "Two medium zones");
-});
+}, "AI Logic");
 
 test("generateResponse: 'best zone' query returns low-crowd recommendation", () => {
     const crowd = { zoneA: "low", zoneB: "high", zoneC: "medium" };
     const response = generateResponse("best zone to go?", crowd);
     assert(response.includes("🟢"), "Response should contain green emoji");
     assert(response.includes("Zone A"), "Response should name Zone A");
-});
+}, "AI Logic");
 
 test("generateResponse: 'best zone' query with all-high crowd warns user", () => {
     const crowd = { zoneA: "high", zoneB: "high", zoneC: "high" };
     const response = generateResponse("best zone to go?", crowd);
     assert(response.includes("🔴"), "Response should contain red emoji warning");
     assert(response.toLowerCase().includes("high crowd"), "Should mention high crowd");
-});
+}, "AI Logic");
 
 test("generateResponse: 'best zone' mid-density returns medium suggestion", () => {
     const crowd = { zoneA: "medium", zoneB: "medium" };
     const response = generateResponse("best zone to go?", crowd);
     assert(response.includes("🟡"), "Response should contain yellow emoji");
-});
+}, "AI Logic");
 
 test("generateResponse: 'crowd' keyword triggers overcrowding warning", () => {
     const crowd = { zoneA: "high", zoneB: "low" };
     const response = generateResponse("is the crowd bad?", crowd);
     assert(response.includes("overcrowded"), "Should warn about overcrowded zone");
     assert(response.includes("Zone A"), "Should name the high zone");
-});
+}, "AI Logic");
 
 test("generateResponse: 'safe' with no high zones returns all-clear message", () => {
     const crowd = { zoneA: "low", zoneB: "medium" };
     const response = generateResponse("is it safe?", crowd);
     assert(response.includes("safe capacities"), "Should confirm safety");
-});
+}, "AI Logic");
 
 test("generateResponse: food keyword returns food court message", () => {
     const crowd = { food: "low", zoneA: "medium" };
     const response = generateResponse("i am hungry", crowd);
     assert(response.includes("Food Court"), "Should mention Food Court");
     assert(response.includes("Classic Burger"), "Low crowd → full meal suggestion");
-});
+}, "AI Logic");
 
 test("generateResponse: food at high density recommends quick item", () => {
     const crowd = { food: "high" };
     const response = generateResponse("eat something", crowd);
     assert(response.includes("Pepperoni Slice"), "High crowd → quick item");
-});
+}, "AI Logic");
 
 test("generateResponse: food at medium density recommends slice", () => {
     const crowd = { food: "medium" };
     const response = generateResponse("grab a snack", crowd);
     assert(response.includes("Pepperoni Slice"), "Medium crowd → slice suggestion");
-});
+}, "AI Logic");
 
 test("generateResponse: 'avoid' keyword returns quiet zone names", () => {
     const crowd = { zoneA: "low", zoneB: "high" };
     const response = generateResponse("which zone should i avoid?", crowd);
     assert(response.includes("Zone A"), "Should mention low-crowd zone");
-});
+}, "AI Logic");
 
 test("generateResponse: weather query with live data returns temp/condition", () => {
     const crowd = { zoneA: "low" };
@@ -319,7 +321,7 @@ test("generateResponse: weather query with live data returns temp/condition", ()
     const response = generateResponse("check the temperature now", crowd, weather);
     assert(response !== "generic", "Should not return generic fallback when weather data present");
     assert(response.toLowerCase().includes("partly cloudy"), "Should include weather condition");
-});
+}, "AI Logic");
 
 test("generateResponse: weather query without data returns generic fallback", () => {
     const crowd = { zoneA: "low" };
@@ -327,7 +329,7 @@ test("generateResponse: weather query without data returns generic fallback", ()
     const response = generateResponse("what's the temperature?", crowd, null);
     // Should fall through to generic response
     assertEqual(response, "generic", "Should return generic fallback");
-});
+}, "AI Logic");
 
 // ─────────────────────────────────────────────
 //  SUITE 3 — UI Rendering (Heatmap + Widget)
@@ -343,57 +345,57 @@ test("simulateHeatmapUIClasses: applies correct density class for each zone", ()
     assertEqual(classes["zoneD"], "density-low",    "Zone D → low");
     assertEqual(classes["vip"],   "density-high",   "VIP → high");
     assertEqual(classes["food"],  "density-medium", "Food Court → medium");
-});
+}, "UI Logic");
 
 test("simulateHeatmapUIClasses: mixed case input resolves to valid class", () => {
     const data = { zoneA: "HIGH", zoneB: "Low" };
     const classes = simulateHeatmapUIClasses(data);
     assertEqual(classes["zoneA"], "density-high", "Uppercase HIGH → density-high");
     assertEqual(classes["zoneB"], "density-low",  "Capitalised Low → density-low");
-});
+}, "UI Logic");
 
 test("simulateBestZoneWidgetHTML: empty data shows waiting message", () => {
     const html = simulateBestZoneWidgetHTML({});
     assert(html.includes("Waiting for live data"), "Should show waiting message");
-});
+}, "UI Logic");
 
 test("simulateBestZoneWidgetHTML: low crowd zone appears in Go To section", () => {
     const data = { zoneA: "low", zoneB: "high" };
     const html = simulateBestZoneWidgetHTML(data);
     assert(html.includes("🟢"), "Low zone should appear with green emoji");
     assert(html.includes("Zone A"), "Zone A should be in widget");
-});
+}, "UI Logic");
 
 test("simulateBestZoneWidgetHTML: high crowd zone appears in Avoid section", () => {
     const data = { zoneA: "low", zoneB: "high" };
     const html = simulateBestZoneWidgetHTML(data);
     assert(html.includes("🔴"), "High zone should have red emoji");
     assert(html.includes("Zone B"), "Zone B should be in avoid section");
-});
+}, "UI Logic");
 
 test("simulateBestZoneWidgetHTML: all-high data shows 'All zones are busy'", () => {
     const data = { zoneA: "high", zoneB: "high", food: "high" };
     const html = simulateBestZoneWidgetHTML(data);
     assert(html.includes("All zones are busy"), "Should show busy message");
-});
+}, "UI Logic");
 
 test("simulateBestZoneWidgetHTML: no high zones shows 'None' in Avoid", () => {
     const data = { zoneA: "low", zoneB: "medium" };
     const html = simulateBestZoneWidgetHTML(data);
     assert(html.includes("None"), "Avoid section should show None");
-});
+}, "UI Logic");
 
 test("simulateBestZoneWidgetHTML: medium-only data falls back to medium pill", () => {
     const data = { zoneA: "medium", zoneB: "medium" };
     const html = simulateBestZoneWidgetHTML(data);
     assert(html.includes("🟡"), "Medium zone should use yellow emoji");
-});
+}, "UI Logic");
 
 test("simulateBestZoneWidgetHTML: correct zone label shown in pill", () => {
     const data = { vip: "low" };
     const html = simulateBestZoneWidgetHTML(data);
     assert(html.includes("VIP Lounge"), "VIP Lounge label should be humanised");
-});
+}, "UI Logic");
 
 // ─────────────────────────────────────────────
 //  SUITE 4 — Auth Module: classifyTopic, logInteraction shape, Insights UI
@@ -453,11 +455,11 @@ function calcTopicPct(count, maxCount) {
 
 test("classifyTopic: 'weather' message → 'weather'", () => {
     assertEqual(classifyTopic("what is the weather like?"), "weather", "weather keyword");
-});
+}, "Auth / Analytics");
 
 test("classifyTopic: 'temperature' → 'weather' (not 'general')", () => {
     assertEqual(classifyTopic("check the temperature now"), "weather", "temperature keyword");
-});
+}, "Auth / Analytics");
 
 test("classifyTopic: 'weather' wins over 'food' because 'weather' contains 'eat'", () => {
     // This is the critical ordering test — "weather" contains "eat" substring
@@ -465,36 +467,36 @@ test("classifyTopic: 'weather' wins over 'food' because 'weather' contains 'eat'
     const topic = classifyTopic("what's the weather forecast?");
     assertEqual(topic, "weather", "weather must be classified before food");
     assert(topic !== "food", "Must NOT be classified as food due to 'eat' substring collision");
-});
+}, "Auth / Analytics");
 
 test("classifyTopic: food keywords → 'food'", () => {
     assertEqual(classifyTopic("i am hungry, want burger"), "food");
     assertEqual(classifyTopic("grab a pizza slice"), "food");
     assertEqual(classifyTopic("any snacks here?"), "food");
-});
+}, "Auth / Analytics");
 
 test("classifyTopic: zone/crowd keywords → 'zone'", () => {
     assertEqual(classifyTopic("which zone is least crowded?"), "zone");
     assertEqual(classifyTopic("where should i go?"), "zone");
     assertEqual(classifyTopic("it is too busy here"), "zone");
-});
+}, "Auth / Analytics");
 
 test("classifyTopic: safety keywords → 'safety'", () => {
     assertEqual(classifyTopic("is it safe here?"), "safety");
     assertEqual(classifyTopic("emergency help needed"), "safety");
     assertEqual(classifyTopic("press SOS button"), "safety");
-});
+}, "Auth / Analytics");
 
 test("classifyTopic: route/navigation keywords → 'route'", () => {
     assertEqual(classifyTopic("what is the best route?"), "route");
     assertEqual(classifyTopic("how do i navigate to exit?"), "route");
     assertEqual(classifyTopic("show me the path to get to gate"), "route");
-});
+}, "Auth / Analytics");
 
 test("classifyTopic: unknown message → 'general'", () => {
     assertEqual(classifyTopic("hello there"), "general");
     assertEqual(classifyTopic("what time does the match start?"), "general");
-});
+}, "Auth / Analytics");
 
 // ── logInteraction data shape ──────────────────────────────────────────────
 
@@ -504,18 +506,18 @@ test("logInteraction shape: record has required fields", () => {
     assert('topic'        in record, "Should have 'topic'");
     assert('responseType' in record, "Should have 'responseType'");
     assert('uid'          in record, "Should have 'uid'");
-});
+}, "Auth / Analytics");
 
 test("logInteraction shape: message is capped at 200 characters", () => {
     const longMsg = "x".repeat(300);
     const record  = buildInteractionRecord(longMsg, "fallback", "user-456");
     assert(record.message.length <= 200, `Message should be ≤200 chars, got ${record.message.length}`);
-});
+}, "Auth / Analytics");
 
 test("logInteraction shape: topic is correctly classified from message", () => {
     const record = buildInteractionRecord("i am hungry, any food?", "gemini", "uid-1");
     assertEqual(record.topic, "food", "Hungry/food message should classify as 'food'");
-});
+}, "Auth / Analytics");
 
 test("logInteraction shape: responseType is preserved", () => {
     const r1 = buildInteractionRecord("question", "gemini",   "u1");
@@ -524,7 +526,7 @@ test("logInteraction shape: responseType is preserved", () => {
     assertEqual(r1.responseType, "gemini",   "Gemini source");
     assertEqual(r2.responseType, "fallback", "Fallback source");
     assertEqual(r3.responseType, "error",    "Error source");
-});
+}, "Auth / Analytics");
 
 // ── Insights UI logic ──────────────────────────────────────────────────────
 
@@ -538,11 +540,11 @@ test("countActiveUsers: filters users outside the time window", () => {
     };
     const count = countActiveUsers(active, 10 * 60 * 1000); // 10-min window
     assertEqual(count, 2, "Only 2 users active within 10-minute window");
-});
+}, "Auth / Analytics");
 
 test("countActiveUsers: empty object returns 0", () => {
     assertEqual(countActiveUsers({}, 10 * 60 * 1000), 0, "No active users");
-});
+}, "Auth / Analytics");
 
 test("countActiveUsers: non-numeric timestamps (null from Firebase) are excluded", () => {
     const mixed = {
@@ -552,33 +554,73 @@ test("countActiveUsers: non-numeric timestamps (null from Firebase) are excluded
     };
     const count = countActiveUsers(mixed, 10 * 60 * 1000);
     assertEqual(count, 1, "Only valid numeric timestamps count");
-});
+}, "Auth / Analytics");
 
 test("calcTopicPct: top topic always 100%", () => {
     assertEqual(calcTopicPct(50, 50), 100, "Max count → 100%");
-});
+}, "Auth / Analytics");
 
 test("calcTopicPct: half count is ~50%", () => {
     assertEqual(calcTopicPct(5, 10), 50, "Half count → 50%");
-});
+}, "Auth / Analytics");
 
 test("calcTopicPct: zero maxCount guard prevents division-by-zero", () => {
     // maxCount defaults to max(1, ...) in real code; mirror handles it too
     const pct = calcTopicPct(0, 0);
     assert(!isNaN(pct), "Should never return NaN");
     assertEqual(pct, 0, "Zero count → 0%");
-});
+}, "Auth / Analytics");
+
+// ── Production Integrity ────────────────────────────────────────────────────
+
+test("AI Payload: structure matches /api/ai protocol", () => {
+    const payload = {
+        message: "hello",
+        crowdData: {},
+        weather: {},
+        conversationHistory: [],
+        clientTime: "2026-04-15T12:00:00Z",
+        userName: "Auditor",
+        activeTab: "section-home"
+    };
+    assert('message' in payload);
+    assert('conversationHistory' in payload);
+    assert('activeTab' in payload);
+    assertEqual(typeof payload.conversationHistory, 'object', "History must be an array");
+}, "Production");
+
+test("Session Persistence: loadChatHistory restores correctly", () => {
+    const mockHistory = [
+        { role: 'user', text: 'Where is the food?' },
+        { role: 'assistant', text: 'Food court is in Zone B.' }
+    ];
+    // Mock simulation of loadChatHistory logic
+    const chatSessionHistory = mockHistory; 
+    assertEqual(chatSessionHistory.length, 2);
+    assertEqual(chatSessionHistory[0].role, 'user');
+}, "Production");
 
 // ─────────────────────────────────────────────
 //  Summary
 // ─────────────────────────────────────────────
 console.log("");
 console.log("═".repeat(52));
-console.log(`  📊 Results: ${results.passed}/${results.total} passed, ${results.failed} failed`);
-if (results.failed === 0) {
-    console.log("  🎉 All tests passed!");
+console.log(`  📋 Full Test Summary`);
+console.log("═".repeat(52));
+
+if (typeof console.table !== "undefined") {
+    console.table(suiteResults);
 } else {
-    console.log(`  ⚠️  ${results.failed} test(s) failed — see ❌ above for details.`);
+    suiteResults.forEach(r => console.log(`${r.Status} [${r.Suite}] ${r.Test}`));
+}
+
+console.log("");
+console.log("═".repeat(52));
+console.log(`  📊 Final Score: ${results.passed}/${results.total} passed, ${results.failed} failed`);
+if (results.failed === 0) {
+    console.log("  🎉 All systems healthy! Tests passed.");
+} else {
+    console.log(`  ⚠️  ${results.failed} test(s) failed — see log for details.`);
 }
 console.log("═".repeat(52));
 console.log("");

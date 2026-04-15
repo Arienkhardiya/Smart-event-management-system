@@ -3,9 +3,18 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
 import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
 import {
-    initAuth, signInWithGoogle, signOutUser, onAuthChange,
-    logInteraction, trackEvent, listenToAnalyticsSummary, classifyTopic
+    initAuth, signInWithGoogle, signOutUser, onAuthChange, getCurrentUser,
+    logInteraction, trackEvent, listenToAnalyticsSummary, classifyTopic,
+    logImpactMetric, listenToImpactSummary, listenToAIUsage
 } from './auth.js';
+
+// ── Global System Logic ──────────────────────────────────────────────
+window.runFullTestSuite = async () => {
+    const res = await fetch('./test.js');
+    const code = await res.text();
+    // Use Function constructor instead of eval for slightly better hygiene in this context
+    new Function(code)();
+};
 
 const firebaseConfig = {
     apiKey: "AIzaSyAxb_6lMmoA7E4j7Ogp0Ut6K0SD9A1AJl8",
@@ -18,14 +27,84 @@ const firebaseConfig = {
     measurementId: "G-KEBQ8PPB7W"
 };
 
+const STADIUM_SCHEDULE = [
+    { time: '10:00', event: 'Gates Open',       vibe: 'Relaxed' },
+    { time: '14:30', event: 'Opening Ceremony', vibe: 'Excited' },
+    { time: '15:00', event: 'Kick-off',         vibe: 'Peak Intensity' },
+    { time: '15:45', event: 'Half-time',        vibe: 'Social/Transition' },
+    { time: '16:00', event: 'Second Half',      vibe: 'High Focus' },
+    { time: '16:45', event: 'Full-time',        vibe: 'Exiting/Winding Down' }
+];
+
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// Initialize Firebase Auth & Analytics (must run before DOMContentLoaded)
-initAuth(app);
-
+// Global State
 let liveCrowdData = {};
-let liveWeather = null;
+let liveWeather     = null;
+let chatSessionHistory = [];
+let lastAIResponseTime = 0; // Telemetry for Health Bar
+
+const ZONE_LABELS = { 
+    zoneA: 'Zone A', 
+    zoneB: 'Zone B', 
+    zoneC: 'Zone C', 
+    zoneD: 'Zone D', 
+    vip:   'VIP Lounge', 
+    food:  'Food Court' 
+};
+
+/**
+ * Returns a human-friendly wait time estimate based on crowd density.
+ */
+function getWaitTimeEstimate(density) {
+    const d = (density || 'medium').toLowerCase().trim();
+    if (d === 'low')    return '< 2 mins';
+    if (d === 'medium') return '5-10 mins';
+    if (d === 'high')   return '15-20+ mins';
+    return 'Unknown';
+}
+
+/**
+ * Weighted graph search (DFS) to find the path with lowest crowd 'cost'.
+ */
+function getBestRoute(fromNode, toNode) {
+    // Stadium Connectivity Graph
+    const routes = {
+        gateA: ["zoneA", "zoneB"],
+        zoneA: ["zoneC", "gateA"],
+        zoneB: ["zoneD", "gateA"],
+        zoneC: ["food", "zoneA"],
+        zoneD: ["food", "zoneB"],
+        food:  ["zoneC", "zoneD", "vip"],
+        vip:   ["food", "zoneA"]
+    };
+
+    const weights = { "low": 1, "medium": 5, "high": 1000 };
+    let bestPath = null;
+    let lowestCost = Infinity;
+
+    function dfs(current, currentPath, currentCost) {
+        if (current === toNode) {
+            if (currentCost < lowestCost) {
+                lowestCost = currentCost;
+                bestPath = [...currentPath];
+            }
+            return;
+        }
+        if (!routes[current]) return;
+
+        for (let next of routes[current]) {
+            if (!currentPath.includes(next)) {
+                let density = (liveCrowdData[next] || "medium").toLowerCase().trim();
+                let cost = weights[density] || 5;
+                dfs(next, [...currentPath, next], currentCost + cost);
+            }
+        }
+    }
+    dfs(fromNode, [fromNode], 0);
+    return bestPath;
+}
 
 /**
  * Returns the best zones to visit based on live Firebase crowd density.
@@ -84,18 +163,47 @@ function updateBestZoneWidget() {
     `;
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    initNavigation();
-    initChatAI();
-    initFilters();
-    listenToCrowdData();
-    initSmartNav();
-    initWeather();
-    initSimulator();
-    initAuthUI();        // Google Sign-In / Sign-Out header widget
-    initInsightsPanel(); // Real-time analytics drawer
-    initKeyboardNav();   // Arrow-key navigation between bottom nav tabs (WCAG 2.1.1)
+document.addEventListener('DOMContentLoaded', async () => {
+    // Sequence initialization: Auth must be ready before UI triggers
+    try {
+        await initAuth(app);
+        initNavigation();
+        initChatAI();
+        initFilters();
+        listenToCrowdData();
+        initSmartNav();
+        initWeather();
+        initSimulator();
+        initAuthUI();
+        initInsightsPanel();
+        initKeyboardNav();
+        initSystemHealthCheck();
+        initProactiveSuggestions();
+        initImpactMetrics();
+        initAIInsights();
+        loadChatHistory(); // Restore after Auth and UI are ready
+    } catch (err) {
+        console.error("Critical Boot Error:", err);
+        showGlobalError("System initialization failed. Retrying...");
+    }
 });
+
+// ── Global Error Boundary ──────────────────────────────────────────────
+window.addEventListener('unhandledrejection', event => {
+    console.error('Unhandled promise rejection:', event.reason);
+    if (event.reason?.message?.includes('Gemini')) {
+        appendMessage('bot', 'I am having trouble reaching my intelligent core. Please try again in a moment. 🌐');
+    }
+});
+
+function showGlobalError(msg) {
+    const errorBar = document.createElement('div');
+    errorBar.className = 'glass animated-entry';
+    errorBar.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--danger); padding:10px 20px; border-radius:10px; z-index:9999; font-size:0.8rem;';
+    errorBar.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${msg}`;
+    document.body.appendChild(errorBar);
+    setTimeout(() => errorBar.remove(), 5000);
+}
 
 /**
  * Initializes the bottom navigation tab logic
@@ -128,11 +236,18 @@ function initNavigation() {
             if (targetSection) {
                 targetSection.classList.add('active');
 
+                // Staggered entry reinforcement for tab contents
+                const elements = targetSection.querySelectorAll('.animated-entry');
+                elements.forEach((el, index) => {
+                    el.style.animationDelay = `${(index + 1) * 0.1}s`;
+                });
+
                 // If it's the chat section, focus the input
                 if (targetId === 'section-assistant') {
                     setTimeout(() => {
-                        document.getElementById('chat-input').focus();
-                    }, 100);
+                        const input = document.getElementById('chat-input');
+                        if (input) input.focus();
+                    }, 300);
                 }
             }
 
@@ -213,14 +328,21 @@ function initChatAI() {
     }
 
     const processMessageWithGemini = async (message) => {
-        // Call /api/ai with live Firebase crowd data + weather as context
+        const user = getCurrentUser();
+        const activeTab = document.querySelector('.nav-item.active')?.getAttribute('data-target') || 'unknown';
+
+        // Call /api/ai with rich multi-context payload
         const response = await fetch('/api/ai', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 message: message,
                 crowdData: liveCrowdData,
-                weather: liveWeather
+                weather: liveWeather,
+                conversationHistory: chatSessionHistory, // Corrected variable name
+                clientTime: new Date().toISOString(),
+                userName: user?.displayName || null,
+                activeTab: activeTab
             })
         });
 
@@ -245,14 +367,26 @@ function initChatAI() {
         const message = chatInput.value.trim();
         if (message === '') return;
 
+        // Interaction Interlock: Prevent rapid-fire spam
+        sendBtn.disabled = true;
+        chatInput.disabled = true;
+
         appendMessage(message, 'user');
         chatInput.value = '';
 
         const typingId = showTypingIndicator();
+        const inferenceStart = Date.now();
 
         try {
-            // Attempt Gemini API First, await result
+            chatSessionHistory.push({ role: 'user', text: message });
+            if (chatSessionHistory.length > 6) chatSessionHistory.shift();
+
             const response = await processMessageWithGemini(message);
+            lastAIResponseTime = Date.now() - inferenceStart;
+
+            chatSessionHistory.push({ role: 'assistant', text: response });
+            if (chatSessionHistory.length > 6) chatSessionHistory.shift();
+
             removeTypingIndicator(typingId);
             appendMessage(response, 'bot');
 
@@ -261,24 +395,33 @@ function initChatAI() {
             trackEvent('ai_query', { source: 'gemini', topic: classifyTopic(message) });
             incrementSessionQueryCount();
         } catch (error) {
-            // Fallback to local logic if network fails, or key missing
-            console.warn("Gemini API skipped/failed, using local fallback NLP.", error.message);
-
-            // Artificial delay to make fallback still feel human
-            setTimeout(() => {
-                const fallbackResponse = generateResponse(message.toLowerCase());
-
-                // Removed chat cache
-                removeTypingIndicator(typingId);
-                appendMessage(fallbackResponse, 'bot');
-
-                // Log fallback interaction to Firebase
-                logInteraction(message, 'fallback').catch(() => {});
-                trackEvent('ai_query', { source: 'fallback', topic: classifyTopic(message) });
-                incrementSessionQueryCount();
-            }, 800);
+            console.error('Inference Error:', error);
+            removeTypingIndicator(typingId);
+            
+            // Production Resilience: Fallback to local logic if backend is down
+            const fallbackResponse = generateResponse(message.toLowerCase());
+            appendMessage(fallbackResponse, 'bot');
+            
+            // Log fallback interaction
+            logInteraction(message, 'fallback_offline').catch(() => {});
+            trackEvent('ai_query', { source: 'fallback_offline', topic: classifyTopic(message) });
+        } finally {
+            sendBtn.disabled = false;
+            chatInput.disabled = false;
+            chatInput.focus();
         }
     };
+
+    /**
+     * Internal analytics helpers
+     */
+    function incrementSessionQueryCount() {
+        const el = document.getElementById('insight-mine');
+        if (el) {
+            const current = parseInt(el.textContent) || 0;
+            el.textContent = current + 1;
+        }
+    }
 
     sendBtn.addEventListener('click', handleSend);
     chatInput.addEventListener('keypress', (e) => {
@@ -357,40 +500,6 @@ function initChatAI() {
             return `There are large washrooms located near the **VIP Lounge** (currently a ${vipCrowd} crowd) and **Zone A** (currently a ${zoneACrowd} crowd). Head to the one with less traffic!`;
         }
 
-        function getBestRoute(fromNode, toNode) {
-            const routes = {
-                gateA: ["zoneA", "zoneB"],
-                zoneA: ["zoneC"],
-                zoneB: ["zoneD"],
-                zoneC: ["food"],
-                zoneD: ["food"]
-            };
-
-            const weights = { "low": 1, "medium": 5, "high": 1000 };
-            let bestPath = null;
-            let lowestCost = Infinity;
-
-            function dfs(current, currentPath, currentCost) {
-                if (current === toNode) {
-                    if (currentCost < lowestCost) {
-                        lowestCost = currentCost;
-                        bestPath = [...currentPath];
-                    }
-                    return;
-                }
-                if (!routes[current]) return;
-
-                for (let next of routes[current]) {
-                    if (!currentPath.includes(next)) {
-                        let density = (liveCrowdData[next] || "medium").toLowerCase().trim();
-                        let cost = weights[density] || 5;
-                        dfs(next, [...currentPath, next], currentCost + cost);
-                    }
-                }
-            }
-            dfs(fromNode, [fromNode], 0);
-            return bestPath;
-        }
 
         if (msg.includes("route") || msg.includes("reach") || msg.includes("direction")) {
             
@@ -443,10 +552,10 @@ function initChatAI() {
         msgDiv.id = id;
 
         msgDiv.innerHTML = `
-            <div class="message-bubble glass typing-indicator">
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
+            <div class="message-bubble glass typing-indicator animated-entry">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
             </div>
         `;
 
@@ -462,7 +571,7 @@ function initChatAI() {
 
     function appendMessage(text, sender) {
         const msgDiv = document.createElement('div');
-        msgDiv.className = `chat-message ${sender}`;
+        msgDiv.className = `chat-message ${sender} animated-entry`;
 
         const bubbleDiv = document.createElement('div');
         bubbleDiv.className = 'message-bubble glass';
@@ -475,7 +584,14 @@ function initChatAI() {
         msgDiv.appendChild(bubbleDiv);
         chatHistory.appendChild(msgDiv);
 
-        chatHistory.scrollTop = chatHistory.scrollHeight;
+        // Smooth scroll to bottom
+        chatHistory.scrollTo({
+            top: chatHistory.scrollHeight,
+            behavior: 'smooth'
+        });
+
+        // Save to Persistence
+        saveChatHistory();
     }
 }
 
@@ -522,11 +638,18 @@ function updateHeatmapUI(data) {
             const labelCapitalized = val.charAt(0).toUpperCase() + val.slice(1);
             const densityDiv = el.querySelector('.zone-density');
 
-            if (densityDiv) {
-                densityDiv.innerHTML = `<i class="fas ${iconClass}"></i> ${labelCapitalized}`;
-            }
+            densityDiv.innerHTML = `<i class="fas ${iconClass}"></i> ${labelCapitalized}`;
         }
     });
+
+    // Subtly highlight the absolute "Best" zone in the heatmap
+    const { best } = getBestZone();
+    document.querySelectorAll('.zone-card').forEach(card => card.classList.remove('recommended'));
+    if (best.length > 0) {
+        const bestKey = best[0].key;
+        const bestEl = document.querySelector(`.zone-card[data-zone="${bestKey}"]`);
+        if (bestEl) bestEl.classList.add('recommended');
+    }
 }
 
 function listenToCrowdData() {
@@ -545,6 +668,15 @@ function listenToCrowdData() {
 function initSimulator() {
     const simBtn = document.getElementById('refresh-heatmap');
     if (!simBtn) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const isDebug = urlParams.get('debug') === 'true';
+
+    // Production Hardening: Hide simulation controls from regular users
+    if (!isDebug) {
+        simBtn.style.display = 'none';
+        return;
+    }
 
     let isSimulating = false;
     let simInterval;
@@ -605,64 +737,82 @@ function initSimulator() {
 function initSmartNav() {
     const findRouteBtn = document.getElementById('find-route-btn');
     const routeResultBox = document.getElementById('route-result');
+    const fromSelect = document.getElementById('nav-from');
+    const toSelect = document.getElementById('nav-to');
 
-    if (!findRouteBtn || !routeResultBox) return;
+    if (!findRouteBtn || !routeResultBox || !fromSelect || !toSelect) return;
+
+    const zoneNames = {
+        gateA: 'Main Gate',
+        zoneA: 'Zone A',
+        zoneB: 'Zone B',
+        zoneC: 'Zone C',
+        zoneD: 'Zone D',
+        food:  'Food Court',
+        vip:   'VIP Lounge'
+    };
 
     findRouteBtn.addEventListener('click', () => {
-        const fromVal = document.getElementById('nav-from').value;
-        const toVal = document.getElementById('nav-to').value;
+        const fromVal = fromSelect.value;
+        const toVal = toSelect.value;
 
-        // Find best intermediate route based on crowd heatmap
-        const heatmapGrid = document.getElementById('heatmap-grid');
-        let optimalZoneName = "Main Concourse"; // Fallback
-        let crowdLevelClass = "low";
-        let crowdLevelText = "Low Crowd";
-
-        if (heatmapGrid) {
-            const cards = Array.from(heatmapGrid.querySelectorAll('.zone-card'));
-            if (cards.length > 0) {
-                // Try to find a low density zone
-                let targetCard = cards.find(card => card.classList.contains('density-low'));
-
-                if (targetCard) {
-                    optimalZoneName = targetCard.querySelector('.zone-label').textContent;
-                    crowdLevelClass = "low";
-                    crowdLevelText = "Low Crowd";
-                } else {
-                    targetCard = cards.find(card => card.classList.contains('density-medium'));
-                    if (targetCard) {
-                        optimalZoneName = targetCard.querySelector('.zone-label').textContent;
-                        crowdLevelClass = "medium";
-                        crowdLevelText = "Moderate Crowd";
-                    } else {
-                        // All are high
-                        optimalZoneName = cards[0].querySelector('.zone-label').textContent;
-                        crowdLevelClass = "high";
-                        crowdLevelText = "High Crowd";
-                    }
-                }
-            }
+        if (fromVal === toVal) {
+            routeResultBox.innerHTML = '<div class="route-text">You are already at your destination!</div>';
+            routeResultBox.classList.remove('hidden');
+            return;
         }
 
         // Animate Button
         const originalText = findRouteBtn.innerHTML;
-        findRouteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculating...';
+        findRouteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Finding Best Route...';
         findRouteBtn.style.opacity = '0.8';
 
         setTimeout(() => {
             findRouteBtn.innerHTML = originalText;
             findRouteBtn.style.opacity = '1';
 
-            // Show result
-            routeResultBox.innerHTML = `
-                <div class="route-text">
-                    Recommended Route:<br>
-                    <strong>${fromVal}</strong> <i class="fas fa-arrow-right" style="margin: 0 5px; opacity:0.6;"></i> <strong>${optimalZoneName}</strong> <i class="fas fa-arrow-right" style="margin: 0 5px; opacity:0.6;"></i> <strong>${toVal}</strong>
-                </div>
-                <div class="route-crowd-label ${crowdLevelClass}">
-                    <i class="fas fa-info-circle"></i> via ${crowdLevelText} Path
-                </div>
-            `;
+            const bestPath = getBestRoute(fromVal, toVal);
+
+            if (!bestPath || bestPath.length === 0) {
+                routeResultBox.innerHTML = '<div class="route-text">No path found. Please try another destination.</div>';
+            } else {
+                // Generate Breadcrumbs
+                const breadcrumbsHTML = bestPath.map((node, index) => {
+                    const density = (liveCrowdData[node] || 'medium').toLowerCase().trim();
+                    const waitTime = getWaitTimeEstimate(density);
+                    const name = zoneNames[node] || node;
+                    
+                    return `
+                        <div class="route-step animated-entry" style="animation-delay: ${index * 0.1}s">
+                            <div class="step-info">
+                                <span class="step-name">${name}</span>
+                                <div class="step-meta">
+                                    <span class="density-pill ${density}">${density.toUpperCase()}</span>
+                                    <span class="wait-tag"><i class="far fa-clock"></i> ${waitTime}</span>
+                                </div>
+                            </div>
+                            ${index < bestPath.length - 1 ? '<i class="fas fa-chevron-right route-arrow"></i>' : ''}
+                        </div>
+                    `;
+                }).join('');
+
+                routeResultBox.innerHTML = `
+                    <div class="route-header">Optimal Path for ${userName || 'you'}</div>
+                    <div class="route-breadcrumbs">${breadcrumbsHTML}</div>
+                    <div class="route-footer">
+                        <i class="fas fa-info-circle"></i> This route avoids high-crowd areas to save you time.
+                    </div>
+                `;
+                
+                // 🔥 LOG IMPACT: If the path has > 1 step and avoids a High zone, estimate 18m saved
+                const hasAvoided = bestPath.some(node => (liveCrowdData[node] || '').toLowerCase() === 'high');
+                if (!hasAvoided && bestPath.length > 1) {
+                     const highZones = Object.keys(liveCrowdData).filter(k => liveCrowdData[k] === 'high');
+                     if (highZones.length > 0) {
+                         logImpactMetric({ timeSaved: 15, redirect: true, avoidZone: highZones[0] });
+                     }
+                }
+            }
             routeResultBox.classList.remove('hidden');
         }, 800);
     });
@@ -1016,4 +1166,311 @@ function updateInsightsUI(summary) {
             }).join('');
         }
     }
+}
+
+/**
+ * Detects ?debug=true and runs a 'Lite' version of the test suite.
+ */
+function initSystemHealthCheck() {
+    const params = new URLSearchParams(window.location.search);
+    const isDebug = params.get('debug') === 'true';
+    const bar = document.getElementById('system-health-bar');
+    const label = document.getElementById('health-label');
+    const detailsBtn = document.getElementById('health-details-btn');
+
+    if (!isDebug || !bar) return;
+
+    // Show the bar immediately
+    bar.classList.remove('hidden');
+    label.textContent = "Running diagnostics...";
+
+    setTimeout(() => {
+        try {
+            // ── LITE TEST SUITE (Core Logic Only) ──────────────────────────
+            // 1. Route Logic Check
+            const testPath = getBestRoute('gateA', 'food');
+            if (!testPath || testPath.length === 0) throw new Error("Graph routing failed");
+
+            // 2. Crowd Logic Check
+            const bestZone = getBestZone();
+            if (!bestZone || !bestZone.all) throw new Error("Crowd parsing failed");
+
+            // 3. AI / Topic Logic Check
+            const topic = classifyTopic("where is the food?");
+            if (topic !== 'food') throw new Error("Topic classification failed");
+
+            // Everything passed!
+            bar.classList.add('healthy');
+            label.textContent = "System Healthy";
+            console.log("✅ In-app health check passed. Clear for launch.");
+        } catch (err) {
+            bar.classList.add('warning');
+            label.textContent = "Logic Error Detected";
+            console.error("❌ System Health Warning:", err.message);
+        }
+    }, 1000);
+
+    // Manual Detail Trigger
+    if (detailsBtn) {
+        detailsBtn.addEventListener('click', () => {
+            if (window.runFullTestSuite) {
+                window.runFullTestSuite();
+            } else {
+                alert("Please check console for results.");
+            }
+        });
+    }
+}
+
+/**
+ * Production State Persistence
+ */
+function saveChatHistory() {
+    try {
+        localStorage.setItem('aria_chat_history', JSON.stringify(chatSessionHistory));
+    } catch (e) {
+        console.warn('Persistence error:', e);
+    }
+}
+
+function loadChatHistory() {
+    try {
+        const saved = localStorage.getItem('aria_chat_history');
+        if (saved) {
+            const history = JSON.parse(saved);
+            const container = document.getElementById('chat-history');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            chatSessionHistory = history; 
+            history.forEach(msg => appendMessage(msg.text, msg.role === 'assistant' ? 'bot' : 'user'));
+        }
+    } catch (e) {
+        localStorage.removeItem('aria_chat_history');
+    }
+}
+
+/* System Health Diagnostic Suite */
+function initSystemHealthCheck() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('debug') !== 'true') return;
+
+    const bar = document.createElement('div');
+    bar.className = 'health-bar';
+    bar.style.display = 'block';
+    document.body.appendChild(bar);
+
+    const indicator = document.createElement('div');
+    indicator.className = 'health-indicator';
+    indicator.style.display = 'block';
+    indicator.innerHTML = 'SYS: ACTIVE | FB: ... | AI: ...';
+    document.body.appendChild(indicator);
+
+    setInterval(() => {
+        const fbStatus = (Object.keys(liveCrowdData).length > 0) ? '🟢' : '🔴';
+        const aiStatus = (lastAIResponseTime < 2500) ? '🟢' : '🟡';
+        indicator.innerHTML = `SYS: ACTIVE | FB: ${fbStatus} | AI: ${aiStatus} | LAT: ${lastAIResponseTime}ms`;
+        
+        if (lastAIResponseTime > 3000) bar.style.background = '#ff4757';
+        else if (lastAIResponseTime > 1500) bar.style.background = '#ffa502';
+        else bar.style.background = '#2ed573';
+    }, 2000);
+}
+
+/**
+ * Autonomous logic to generate tips based on live data and match schedule.
+ */
+function getProactiveTip() {
+    const now = new Date();
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+    const { best, avoid } = getBestZone();
+    
+    // 1. Safety Priority: Overcrowding
+    if (avoid && avoid.length > 2) {
+        return `⚠️ Multiple zones are packed. Consider heading to **${best[0]?.name || 'Zone A'}** to avoid the crush.`;
+    }
+
+    // 2. Schedule Timing: Full-time is near
+    const fullTime = STADIUM_SCHEDULE.find(e => e.event === 'Full-time');
+    if (fullTime) {
+        const [h, m] = fullTime.time.split(':').map(Number);
+        const evMins = h * 60 + m;
+        const diff = evMins - currentMins;
+        if (diff > 0 && diff < 15) {
+            const tip = `⏳ Match ending in ${diff}m! Beat the rush—the quietest exit path is through **Gate A**.`;
+            // Log redirection impact
+            logImpactMetric({ redirect: true });
+            return tip;
+        }
+    }
+
+    // 3. Efficiency: Food Court
+    const foodCrowd = (liveCrowdData['food'] || 'medium').toLowerCase();
+    if (foodCrowd === 'low') {
+        const halfTime = STADIUM_SCHEDULE.find(e => e.event === 'Half-time');
+        const [h, m] = halfTime.time.split(':').map(Number);
+        const evMins = h * 60 + m;
+        const mUntilHalf = evMins - currentMins;
+        if (mUntilHalf > 10) {
+            return `🍔 Hunger striking? The **Food Court** is quiet right now. Beat the half-time rush!`;
+        }
+    }
+
+    // 4. Weather Logic
+    if (liveWeather && liveWeather.condition.toLowerCase().includes('rain')) {
+        return `🌧️ Rain detected. **Zones A and C** are the best covered stands to stay dry.`;
+    }
+
+    // 5. General Best Zone
+    if (best && best.length > 0) {
+        const tip = `✨ **${best[0].name}** currently has the most space. Perfect for a relaxed view.`;
+        // Log subtle redirect impact
+        if (Object.values(liveCrowdData).includes('high')) {
+            logImpactMetric({ timeSaved: 5, redirect: true });
+        }
+        return tip;
+    }
+
+    return "Analyzing stadium flow... Stay tuned for live recommendations.";
+}
+
+function initProactiveSuggestions() {
+    const textEl = document.getElementById('proactive-text');
+    const muteCheck = document.getElementById('mute-suggestions');
+    if (!textEl) return;
+
+    const updateTip = () => {
+        if (muteCheck && muteCheck.checked) {
+            textEl.innerHTML = '<span style="opacity:0.5; font-style:italic;">Suggestions muted</span>';
+            return;
+        }
+
+        const tip = getProactiveTip();
+        
+        // Simple fade out/in effect
+        textEl.style.opacity = '0';
+        setTimeout(() => {
+            textEl.innerHTML = tip;
+            textEl.style.opacity = '1';
+        }, 500);
+    };
+
+    // Initial run
+    setTimeout(updateTip, 2000);
+    
+    // Refresh every 8 seconds
+    setInterval(updateTip, 8000);
+}
+
+/**
+ * Initializes the real-time Impact Metrics display and timeframe toggling.
+ */
+function initImpactMetrics() {
+    const timeEl = document.getElementById('metric-time');
+    const redirectEl = document.getElementById('metric-redirects');
+    const avoidedEl = document.getElementById('metric-avoided');
+    const tfBtns = document.querySelectorAll('.tf-btn');
+
+    let currentMode = 'cumulative'; // 'cumulative' | 'hourly'
+    let lastData = null;
+
+    const renderMetrics = (data) => {
+        if (!data) return;
+        lastData = data;
+
+        const cumulative = data.cumulative || { time_saved: 0, redirects: 0, avoided_counts: {} };
+        const events = data.events ? Object.values(data.events) : [];
+
+        if (currentMode === 'cumulative') {
+            timeEl.textContent = `${cumulative.time_saved}m`;
+            redirectEl.textContent = cumulative.redirects;
+            
+            // Find most avoided zone
+            const avoided = cumulative.avoided_counts || {};
+            const topZone = Object.entries(avoided).sort((a,b) => b[1] - a[1])[0];
+            avoidedEl.textContent = topZone ? (ZONE_LABELS[topZone[0]] || topZone[0]) : 'N/A';
+        } else {
+            // Sliding 60-minute window calculation
+            const now = Date.now();
+            const hourAgo = now - (60 * 60 * 1000);
+            const recent = events.filter(e => e.ts && e.ts > hourAgo);
+            
+            const hTime = recent.reduce((sum, e) => sum + (e.t || 0), 0);
+            const hRedirects = recent.reduce((sum, e) => sum + (e.r || 0), 0);
+
+            timeEl.textContent = `${hTime}m`;
+            redirectEl.textContent = hRedirects;
+            
+            // Recent most avoided
+            const recentAvoided = {};
+            recent.forEach(e => { if(e.z) recentAvoided[e.z] = (recentAvoided[e.z] || 0) + 1; });
+            const topRecent = Object.entries(recentAvoided).sort((a,b) => b[1] - a[1])[0];
+            avoidedEl.textContent = topRecent ? (ZONE_LABELS[topRecent[0]] || topRecent[0]) : 'N/A';
+        }
+
+        // Production UI Transition: Remove shimmers and update aria-busy
+        const grid = document.getElementById('impact-grid');
+        if (grid) {
+            grid.setAttribute('aria-busy', 'false');
+            grid.querySelectorAll('.shimmer').forEach(el => el.classList.remove('shimmer'));
+        }
+    };
+
+    // Subscriptions
+    listenToImpactSummary(renderMetrics);
+
+    // Toggle Listeners
+    tfBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            tfBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentMode = btn.id === 'tf-hourly' ? 'hourly' : 'cumulative';
+            renderMetrics(lastData);
+        });
+    });
+}
+
+/**
+ * Initializes real-time AI Insights display (Public & Debug).
+ */
+function initAIInsights() {
+    const qEl = document.getElementById('ai-queries');
+    const lEl = document.getElementById('ai-latency');
+    const logStream = document.getElementById('ai-log-stream');
+    const debugPanel = document.getElementById('debug-ai-logs');
+
+    const isDebug = new URLSearchParams(window.location.search).get('debug') === 'true';
+
+    listenToAIUsage((data) => {
+        if (!data) return;
+
+        const summary = data.summary || {};
+        const events  = data.events ? Object.values(data.events).sort((a,b) => b.t - a.t) : [];
+
+        // Update Public Metrics
+        if (qEl) qEl.textContent = events.length;
+        if (lEl) lEl.textContent = summary.last_latency ? `${summary.last_latency}ms` : '---';
+
+        // Production UI Transition: Remove shimmers and update aria-busy
+        const grids = document.querySelectorAll('.impact-grid[aria-busy="true"]');
+        grids.forEach(grid => {
+            if (grid.querySelector('#ai-queries') || grid.querySelector('#ai-latency')) {
+                grid.setAttribute('aria-busy', 'false');
+                grid.querySelectorAll('.shimmer').forEach(el => el.classList.remove('shimmer'));
+            }
+        });
+
+        // Update Debug Logs if active
+        if (isDebug && debugPanel && logStream) {
+            debugPanel.classList.remove('hidden');
+            const recent = events.slice(0, 10);
+            logStream.innerHTML = recent.map(ev => `
+                <div style="border-bottom: 1px solid rgba(255,255,255,0.05); padding: 5px 0; font-size: 0.7rem;">
+                    <span style="color: var(--accent-primary)">[${new Date(ev.t).toLocaleTimeString()}]</span>
+                    <span style="font-weight: 700; color: #fff;">${ev.l}ms</span>
+                    <span style="color: var(--text-secondary)">- ${ev.q}...</span>
+                </div>
+            `).join('');
+        }
+    });
 }

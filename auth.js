@@ -10,7 +10,7 @@
 // SECURITY: No API keys are exposed here. Firebase client config is intentionally
 // public — security is enforced via Realtime Database rules (UID-scoped writes).
 
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged }
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged, setPersistence, browserLocalPersistence }
     from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 
 import { getAnalytics, logEvent }
@@ -31,11 +31,18 @@ let _db        = null;
  * Must be called once before any other exports are used.
  *
  * @param {import("https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js").FirebaseApp} firebaseApp
- * @returns {object} Firebase Auth instance
+ * @returns {Promise<object>} Firebase Auth instance
  */
-export function initAuth(firebaseApp) {
+export async function initAuth(firebaseApp) {
     _db   = getDatabase(firebaseApp);
     _auth = getAuth(firebaseApp);
+
+    // Explicitly set local persistence to ensure sessions survive refresh
+    try {
+        await setPersistence(_auth, browserLocalPersistence);
+    } catch (e) {
+        console.warn('[Auth] Persistence setup failed:', e.message);
+    }
 
     // Analytics can be blocked by ad-blockers or unavailable in some environments — fail gracefully
     try {
@@ -221,6 +228,69 @@ export function trackEvent(eventName, params = {}) {
 export function listenToAnalyticsSummary(callback) {
     if (!_db) return () => {};
     return onValue(ref(_db, 'analytics_summary'), snapshot => {
+        callback(snapshot.val() || {});
+    });
+}
+
+// ─── Impact Analytics ────────────────────────────────────────────────────────
+
+/**
+ * Log a value-add impact event:
+ *   - timeSaved: minutes saved by avoiding a high-density route
+ *   - redirect:  guided to a low-density zone
+ *   - avoidZone: the zone key that was avoided
+ */
+export async function logImpactMetric({ timeSaved = 0, redirect = false, avoidZone = null }) {
+    if (!_db) return;
+
+    const updates = {
+        'impact_summary/cumulative/time_saved': increment(timeSaved),
+        'impact_summary/cumulative/redirects':  increment(redirect ? 1 : 0)
+    };
+
+    if (avoidZone) {
+        updates[`impact_summary/cumulative/avoided_counts/${avoidZone}`] = increment(1);
+    }
+
+    // Also log a timestamped event for the "Last 60 Minutes" sliding window calculation
+    const event = {
+        t: timeSaved,
+        r: redirect ? 1 : 0,
+        z: avoidZone,
+        ts: serverTimestamp()
+    };
+
+    try {
+        await Promise.all([
+            update(ref(_db), updates),
+            push(ref(_db, 'impact_summary/events'), event)
+        ]);
+        
+        // Optional: Prune old events (last 100 kept for "recent" window)
+        // In a real production app, this would be a Cloud Function. 
+        // Here we just keep the recent window clean for the client.
+    } catch (err) {
+        console.warn('[Auth] logImpactMetric failed:', err.message);
+    }
+}
+
+/**
+ * Subscribe to the combined impact data.
+ */
+export function listenToImpactSummary(callback) {
+    if (!_db) return () => {};
+    return onValue(ref(_db, 'impact_summary'), snapshot => {
+        callback(snapshot.val() || {});
+    });
+}
+
+/**
+ * Real-time listener for AI Backend Telemetry and Usage.
+ * Provides live updates on Gemini response times and total request volume.
+ */
+export function listenToAIUsage(callback) {
+    if (!_db) return;
+    onValue(ref(_db, 'ai_usage'), (snapshot) => {
         callback(snapshot.val() || {});
     });
 }

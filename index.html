@@ -96,7 +96,11 @@
             <div class="header-info">
                 <h1 class="event-title">Championship Finals 2026</h1>
                 <div class="header-sub-row">
-                    <p class="event-subtitle">AI-Powered Smart Event Assistant</p>
+                    <p class="event-subtitle">Smart Event Assistant</p>
+                    <div class="google-ai-badge" role="complementary" aria-label="Powered by Google AI">
+                        <span>Powered by Google AI (Gemini)</span>
+                        <div class="tooltip">This assistant uses Google Gemini AI for real-time intelligent decision making.</div>
+                    </div>
                     <!-- aria-live so screen readers announce user count changes -->
                     <span id="live-users-badge" class="live-users-badge hidden" aria-live="polite" aria-atomic="true">
                         <span class="live-dot" aria-hidden="true"></span>
@@ -152,23 +156,99 @@
                         <i id="weather-icon" class="fas fa-temperature-half" aria-hidden="true"></i>
                         <div>
                             <span class="status-label">Weather</span>
-                            <!-- aria-live so screen readers announce when weather loads -->
                             <span class="status-val" id="weather-val" role="status" aria-live="polite">Loading...</span>
                         </div>
                     </div>
                 </div>
 
-                <h3 class="section-heading animated-entry delay-2">Highlights</h3>
-                <div class="highlights-grid animated-entry delay-2">
-                    <div class="highlight-card glass">
-                        <i class="fas fa-ticket-alt highlight-icon"></i>
+                <!-- Proactive AI Suggestions (Next Best Action) -->
+                <div id="proactive-tip-container" class="proactive-card glass animated-entry delay-2" role="region" aria-labelledby="proactive-heading">
+                    <div class="proactive-header">
+                        <div class="proactive-title-group">
+                            <span class="ai-pulse" aria-hidden="true"></span>
+                            <h3 id="proactive-heading">ARIA's Live Tip</h3>
+                        </div>
+                        <label class="mute-toggle" title="Toggle proactive suggestions">
+                            <input type="checkbox" id="mute-suggestions">
+                            <i class="fas fa-volume-up" id="mute-icon"></i>
+                        </label>
+                    </div>
+                    <div class="proactive-body">
+                        <p id="proactive-text">Analyzing live stadium conditions...</p>
+                    </div>
+                </div>
+
+                <!-- AI Intelligence Insights (Advanced Google Services) -->
+                <div class="impact-section animated-entry delay-2">
+                    <div class="section-header-flex">
+                        <h3 class="section-heading"><i class="fas fa-brain"></i> AI Intelligence</h3>
+                        <span class="badger-pill">Gemini 2.0 Flash</span>
+                    </div>
+                    <div class="impact-grid" aria-busy="true">
+                        <div class="metric-card glass shimmer">
+                            <span class="metric-icon"><i class="fas fa-microchip"></i></span>
+                            <span class="metric-val" id="ai-queries">...</span>
+                            <span class="metric-label">Total Responses</span>
+                        </div>
+                        <div class="metric-card glass shimmer">
+                            <span class="metric-icon"><i class="fas fa-bolt"></i></span>
+                            <span class="metric-val" id="ai-latency">...</span>
+                            <span class="metric-label">Last Latency</span>
+                        </div>
+                        <div class="metric-card glass shimmer">
+                            <span class="metric-icon"><i class="fas fa-shield-virus"></i></span>
+                            <span class="metric-val">---</span>
+                            <span class="metric-label">AI Health</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 class="section-heading animated-entry delay-3">Highlights</h3>
+                <div class="highlights-grid">
+                    <div class="highlight-card glass animated-entry delay-4">
+                        <i class="fas fa-ticket-alt highlight-icon" aria-hidden="true"></i>
                         <h4>View Tickets</h4>
                         <p>Access your digital passes instantly.</p>
                     </div>
-                    <div class="highlight-card glass">
-                        <i class="fas fa-video highlight-icon"></i>
+                    <div class="highlight-card glass animated-entry delay-5">
+                        <i class="fas fa-video highlight-icon" aria-hidden="true"></i>
                         <h4>Live Replays</h4>
                         <p>Watch multiple angles of the action.</p>
+                    </div>
+                </div>
+
+                <!-- Impact Metrics Panel -->
+                <div class="impact-section animated-entry delay-3" role="region" aria-labelledby="impact-heading">
+                    <div class="section-header-flex">
+                        <h3 class="section-heading" id="impact-heading">Stadium Impact</h3>
+                        <div class="timeframe-toggle" role="group" aria-label="Metric timeframe selection">
+                            <button id="tf-cumulative" class="tf-btn active" type="button">All Time</button>
+                            <button id="tf-hourly" class="tf-btn" type="button">Last 60m</button>
+                        </div>
+                    </div>
+                    
+                    <div class="impact-grid" id="impact-grid" aria-busy="true">
+                        <div class="metric-card glass shimmer">
+                            <div class="metric-icon"><i class="fas fa-history"></i></div>
+                            <div class="metric-content">
+                                <span class="metric-val" id="metric-time">...</span>
+                                <span class="metric-label">Wait Time Saved</span>
+                            </div>
+                        </div>
+                        <div class="metric-card glass shimmer">
+                            <div class="metric-icon"><i class="fas fa-route"></i></div>
+                            <div class="metric-content">
+                                <span class="metric-val" id="metric-redirects">...</span>
+                                <span class="metric-label">Users Guided</span>
+                            </div>
+                        </div>
+                        <div class="metric-card glass shimmer">
+                            <div class="metric-icon"><i class="fas fa-shield-alt"></i></div>
+                            <div class="metric-content">
+                                <span class="metric-val" id="metric-avoided">---</span>
+                                <span class="metric-label">Most Avoided</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -195,29 +275,28 @@
                             <span>Refresh</span>
                         </button>
                     </div>
-                    <!-- role=list communicates grid is a list of zones to screen readers -->
                     <div class="heatmap-grid" id="heatmap-grid" role="list" aria-label="Zone crowd density levels" aria-live="polite" aria-atomic="false">
-                        <div class="zone-card density-medium" id="zone-a" data-zone="zoneA" role="listitem" aria-label="Zone A (North): Medium crowd density">
+                        <div class="zone-card density-medium animated-entry delay-2" id="zone-a" data-zone="zoneA" role="listitem">
                             <div class="zone-label">Zone A (North)</div>
                             <div class="zone-density"><i class="fas fa-user-friends" aria-hidden="true"></i> Medium</div>
                         </div>
-                        <div class="zone-card density-low" id="zone-b" data-zone="zoneB" role="listitem" aria-label="Zone B (East): Low crowd density">
+                        <div class="zone-card density-low animated-entry delay-3" id="zone-b" data-zone="zoneB" role="listitem">
                             <div class="zone-label">Zone B (East)</div>
                             <div class="zone-density"><i class="fas fa-user" aria-hidden="true"></i> Low</div>
                         </div>
-                        <div class="zone-card density-high" id="zone-c" data-zone="zoneC" role="listitem" aria-label="Zone C (South): High crowd density">
+                        <div class="zone-card density-high animated-entry delay-4" id="zone-c" data-zone="zoneC" role="listitem">
                             <div class="zone-label">Zone C (South)</div>
                             <div class="zone-density"><i class="fas fa-users" aria-hidden="true"></i> High</div>
                         </div>
-                        <div class="zone-card density-low" id="zone-d" data-zone="zoneD" role="listitem" aria-label="Zone D (West): Low crowd density">
+                        <div class="zone-card density-low animated-entry delay-5" id="zone-d" data-zone="zoneD" role="listitem">
                             <div class="zone-label">Zone D (West)</div>
                             <div class="zone-density"><i class="fas fa-user" aria-hidden="true"></i> Low</div>
                         </div>
-                        <div class="zone-card density-low" id="zone-vip" data-zone="vip" role="listitem" aria-label="VIP Lounge: Low crowd density">
+                        <div class="zone-card density-low animated-entry" style="animation-delay: 0.6s" id="zone-vip" data-zone="vip" role="listitem">
                             <div class="zone-label">VIP Lounge</div>
                             <div class="zone-density"><i class="fas fa-user" aria-hidden="true"></i> Low</div>
                         </div>
-                        <div class="zone-card density-medium" id="zone-food" data-zone="food" role="listitem" aria-label="Food Court: Medium crowd density">
+                        <div class="zone-card density-medium animated-entry" style="animation-delay: 0.7s" id="zone-food" data-zone="food" role="listitem">
                             <div class="zone-label">Food Court</div>
                             <div class="zone-density"><i class="fas fa-user-friends" aria-hidden="true"></i> Medium</div>
                         </div>
@@ -243,18 +322,21 @@
                         <div class="input-group">
                             <label for="nav-from">From Location</label>
                             <select id="nav-from" class="glass-select" aria-describedby="nav-hint">
-                                <option value="Gate A">Gate A</option>
-                                <option value="Gate B">Gate B</option>
-                                <option value="Zone 1">Zone 1</option>
-                                <option value="Zone 2">Zone 2</option>
+                                <option value="gateA">Gate A (Main)</option>
+                                <option value="zoneA">Zone A (North Stand)</option>
+                                <option value="zoneB">Zone B (East Stand)</option>
+                                <option value="zoneC">Zone C (South Stand)</option>
+                                <option value="zoneD">Zone D (West Stand)</option>
+                                <option value="vip">VIP Lounge</option>
                             </select>
                         </div>
                         <div class="input-group">
-                            <label for="nav-to">To Location</label>
+                            <label for="nav-to">To Destination</label>
                             <select id="nav-to" class="glass-select">
-                                <option value="Food Court">Food Court</option>
-                                <option value="Exit">Exit</option>
-                                <option value="Washroom">Washroom</option>
+                                <option value="food">Food Court</option>
+                                <option value="vip">VIP Lounge</option>
+                                <option value="zoneC">Zone C (Washrooms)</option>
+                                <option value="gateA">Exit (Main Gate)</option>
                             </select>
                         </div>
                     </div>
@@ -298,6 +380,12 @@
                         </button>
                     </div>
                 </div>
+                <div style="display: flex; justify-content: flex-end; margin-top: 8px; padding-right: 5px;">
+                    <div class="google-ai-badge" style="opacity: 0.6; font-size: 0.6rem;">
+                        <span>Powered by Gemini</span>
+                        <div class="tooltip">Advanced Reasoning by Google DeepMind</div>
+                    </div>
+                </div>
             </section>
 
             <!-- Food Section -->
@@ -313,7 +401,7 @@
                 </div>
 
                 <ul class="food-grid" role="list" aria-label="Food items">
-                    <li class="food-card glass" role="listitem">
+                    <li class="food-card glass animated-entry delay-1" role="listitem">
                         <img src="./assets/stadium_food.jpg" alt="Classic Burger: beef patty with cheese, lettuce and house sauce" class="food-img" id="food-image">
                         <div class="food-info">
                             <h3 id="food-1-name">Classic Burger</h3>
@@ -326,7 +414,7 @@
                             </div>
                         </div>
                     </li>
-                    <li class="food-card glass" role="listitem">
+                    <li class="food-card glass animated-entry delay-2" role="listitem">
                         <div class="food-placeholder" aria-hidden="true"><i class="fas fa-pizza-slice"></i></div>
                         <div class="food-info">
                             <h3 id="food-2-name">Pepperoni Slice</h3>
@@ -346,7 +434,7 @@
             <section id="section-emergency" class="view-section" role="region" aria-labelledby="emergency-heading">
                 <h2 class="view-title text-danger" id="emergency-heading">Emergency &amp; Safety</h2>
                 
-                <div class="emergency-card glass border-danger" role="group" aria-label="Quick SOS alert">
+                <div class="emergency-card glass border-danger animated-entry delay-1" role="group" aria-label="Quick SOS alert">
                     <i class="fas fa-exclamation-triangle text-danger icon-large" aria-hidden="true"></i>
                     <h3>Quick SOS</h3>
                     <p id="sos-desc">Alert stadium security to your immediate location.</p>
@@ -358,7 +446,7 @@
                 </div>
                 
                 <ul class="contacts-list" role="list" aria-label="Emergency contacts">
-                    <li class="contact-item glass" role="listitem">
+                    <li class="contact-item glass animated-entry delay-2" role="listitem">
                         <div class="contact-icon" aria-hidden="true"><i class="fas fa-first-aid"></i></div>
                         <div class="contact-text">
                             <h3>Medical Assistance</h3>
@@ -368,7 +456,7 @@
                             <i class="fas fa-phone" aria-hidden="true"></i>
                         </button>
                     </li>
-                    <li class="contact-item glass" role="listitem">
+                    <li class="contact-item glass animated-entry delay-3" role="listitem">
                         <div class="contact-icon" aria-hidden="true"><i class="fas fa-shield-alt"></i></div>
                         <div class="contact-text">
                             <h3>Lost &amp; Found</h3>
@@ -381,6 +469,21 @@
                 </ul>
             </section>
         </main>
+
+        <!-- System Health Bar (Debug Mode Only) -->
+        <div id="system-health-bar" class="health-bar glass hidden" role="status" aria-live="polite">
+            <span class="health-status">
+                <i class="fas fa-check-circle"></i>
+                <span id="health-label">System Healthy</span>
+            </span>
+            <button id="health-details-btn" class="health-btn" title="Run diagnostic suite">
+                Details
+            </button>
+            <div id="debug-ai-logs" class="debug-panel hidden">
+                <h4><i class="fas fa-terminal"></i> AI Telemetry Logs</h4>
+                <div id="ai-log-stream" class="log-stream"></div>
+            </div>
+        </div>
 
         <!-- Bottom Navigation -->
         <!-- role=navigation + aria-label trumps the implicit <nav> role for specificity -->
